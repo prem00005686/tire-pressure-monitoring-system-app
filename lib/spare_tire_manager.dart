@@ -141,7 +141,7 @@ class SpareTireManager {
     updateSensorStatus('Spare Tire', SensorStatus(
       connected: true,
       statusColor: Colors.blue,
-      warningIcons: [Icon(Icons.tire_repair, color: Colors.white, size: 12)],
+      warningIcons: [Icons.tire_repair],
       message: 'Spare Tire',
     ));
   }

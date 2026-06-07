@@ -1,17 +1,15 @@
-import 'package:flutter/material.dart';
-import 'dart:convert';
+﻿import 'package:flutter/material.dart';
+import 'app_theme.dart';
 import 'package:flutter/services.dart';
 import 'sensor_id_store.dart';
-import 'spare_tire_manager.dart';
-import 'spare_tire_screen.dart';
-import 'tire_service_screen.dart';
+// removed unused imports
 
 
 class SensorConfigScreen extends StatefulWidget {
   final String wheelLabel;
   final SensorThresholds currentThresholds;
 
-  const SensorConfigScreen({
+  SensorConfigScreen({
     Key? key,
     required this.wheelLabel,
     required this.currentThresholds,
@@ -68,8 +66,8 @@ class _SensorConfigScreenState extends State<SensorConfigScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Thresholds updated successfully'),
-            backgroundColor: Colors.green,
+            content: Text('Thresholds updated successfully', style: TextStyle(color: AppTheme.onBackground)),
+            backgroundColor: AppTheme.surfaceHigh,
           ),
         );
 
@@ -128,7 +126,7 @@ class _SensorConfigScreenState extends State<SensorConfigScreen> {
     }
     
     if (temperature < 50 || temperature > 120) {
-      return 'Temperature must be between 50-120°C';
+      return 'Temperature must be between 50-120Â°C';
     }
     
     return null;
@@ -154,15 +152,16 @@ class _SensorConfigScreenState extends State<SensorConfigScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppTheme.background,
       appBar: AppBar(
         title: Text('Configure ${widget.wheelLabel}'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.blue[800],
+        backgroundColor: AppTheme.background,
+        foregroundColor: AppTheme.primary,
         elevation: 0,
         actions: [
           TextButton(
             onPressed: _resetToDefaults,
-            child: Text('Reset', style: TextStyle(color: Colors.blue[800])),
+            child: Text('Reset', style: TextStyle(color: AppTheme.primary)),
           ),
         ],
       ),
@@ -174,13 +173,17 @@ class _SensorConfigScreenState extends State<SensorConfigScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Header
-              Card(
-                color: Colors.blue[50],
+              Container(
+                decoration: BoxDecoration(
+                  color: AppTheme.surface,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppTheme.outlineVariant),
+                ),
                 child: Padding(
                   padding: EdgeInsets.all(16),
                   child: Row(
                     children: [
-                      Icon(Icons.settings, color: Colors.blue[800]),
+                      Icon(Icons.settings, color: AppTheme.primary),
                       SizedBox(width: 12),
                       Expanded(
                         child: Column(
@@ -191,12 +194,12 @@ class _SensorConfigScreenState extends State<SensorConfigScreen> {
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.blue[800],
+                                color: AppTheme.onBackground,
                               ),
                             ),
                             Text(
                               'Set warning thresholds for ${widget.wheelLabel}',
-                              style: TextStyle(color: Colors.blue[600]),
+                              style: TextStyle(color: AppTheme.onSurfaceVariant),
                             ),
                           ],
                         ),
@@ -211,7 +214,7 @@ class _SensorConfigScreenState extends State<SensorConfigScreen> {
               // Pressure Settings
               Text(
                 'Pressure Thresholds (PSI)',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.onBackground),
               ),
               SizedBox(height: 12),
               Row(
@@ -221,18 +224,27 @@ class _SensorConfigScreenState extends State<SensorConfigScreen> {
                       controller: _pressureMinController,
                       validator: (value) => _validatePressure(value, true),
                       keyboardType: TextInputType.numberWithOptions(decimal: true),
+                      style: TextStyle(color: AppTheme.onBackground),
                       inputFormatters: [
                         FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,1}')),
                       ],
                       decoration: InputDecoration(
                         labelText: 'Minimum PSI',
-                        prefixIcon: Icon(Icons.arrow_downward, color: Colors.red),
+                        labelStyle: TextStyle(color: AppTheme.outline),
+                        prefixIcon: Icon(Icons.arrow_downward, color: AppTheme.error),
+                        filled: true,
+                        fillColor: AppTheme.surface,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.blue),
+                          borderSide: BorderSide(color: AppTheme.primary),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: AppTheme.outlineVariant),
                         ),
                       ),
                     ),
@@ -243,18 +255,27 @@ class _SensorConfigScreenState extends State<SensorConfigScreen> {
                       controller: _pressureMaxController,
                       validator: (value) => _validatePressure(value, false),
                       keyboardType: TextInputType.numberWithOptions(decimal: true),
+                      style: TextStyle(color: AppTheme.onBackground),
                       inputFormatters: [
                         FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,1}')),
                       ],
                       decoration: InputDecoration(
                         labelText: 'Maximum PSI',
-                        prefixIcon: Icon(Icons.arrow_upward, color: Colors.red),
+                        labelStyle: TextStyle(color: AppTheme.outline),
+                        prefixIcon: Icon(Icons.arrow_upward, color: AppTheme.error),
+                        filled: true,
+                        fillColor: AppTheme.surface,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.blue),
+                          borderSide: BorderSide(color: AppTheme.primary),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: AppTheme.outlineVariant),
                         ),
                       ),
                     ),
@@ -267,28 +288,39 @@ class _SensorConfigScreenState extends State<SensorConfigScreen> {
               // Temperature Settings
               Text(
                 'Temperature Threshold',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.onBackground),
               ),
               SizedBox(height: 12),
               TextFormField(
                 controller: _temperatureMaxController,
                 validator: _validateTemperature,
                 keyboardType: TextInputType.numberWithOptions(decimal: true),
+                style: TextStyle(color: AppTheme.onBackground),
                 inputFormatters: [
                   FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,1}')),
                 ],
                 decoration: InputDecoration(
-                  labelText: 'Maximum Temperature (°C)',
-                  prefixIcon: Icon(Icons.thermostat, color: Colors.orange),
-                  suffixText: '°C',
+                  labelText: 'Maximum Temperature (Â°C)',
+                  labelStyle: TextStyle(color: AppTheme.outline),
+                  prefixIcon: Icon(Icons.thermostat, color: AppTheme.primary),
+                  suffixText: 'Â°C',
+                  suffixStyle: TextStyle(color: AppTheme.outline),
+                  filled: true,
+                  fillColor: AppTheme.surface,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.blue),
+                    borderSide: BorderSide(color: AppTheme.primary),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: AppTheme.outlineVariant),
                   ),
                   helperText: 'Alert when temperature exceeds this value',
+                  helperStyle: TextStyle(color: AppTheme.outline),
                 ),
               ),
               
@@ -297,28 +329,39 @@ class _SensorConfigScreenState extends State<SensorConfigScreen> {
               // Battery Settings
               Text(
                 'Battery Threshold',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.onBackground),
               ),
               SizedBox(height: 12),
               TextFormField(
                 controller: _batteryMinController,
                 validator: _validateBattery,
                 keyboardType: TextInputType.number,
+                style: TextStyle(color: AppTheme.onBackground),
                 inputFormatters: [
                   FilteringTextInputFormatter.digitsOnly,
                 ],
                 decoration: InputDecoration(
                   labelText: 'Minimum Battery Level (%)',
-                  prefixIcon: Icon(Icons.battery_alert, color: Colors.amber),
+                  labelStyle: TextStyle(color: AppTheme.outline),
+                  prefixIcon: Icon(Icons.battery_alert, color: AppTheme.primary),
                   suffixText: '%',
+                  suffixStyle: TextStyle(color: AppTheme.outline),
+                  filled: true,
+                  fillColor: AppTheme.surface,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.blue),
+                    borderSide: BorderSide(color: AppTheme.primary),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: AppTheme.outlineVariant),
                   ),
                   helperText: 'Alert when battery falls below this level',
+                  helperStyle: TextStyle(color: AppTheme.outline),
                 ),
               ),
               
@@ -328,14 +371,14 @@ class _SensorConfigScreenState extends State<SensorConfigScreen> {
               Container(
                 padding: EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.amber[50],
-                  border: Border.all(color: Colors.amber[200]!),
+                  color: Theme.of(context).colorScheme.errorContainer.withValues(alpha: 0.1),
+                  border: Border.all(color: Theme.of(context).colorScheme.errorContainer.withValues(alpha: 0.3)),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.info, color: Colors.amber[800]),
+                    Icon(Icons.info, color: AppTheme.error),
                     SizedBox(width: 12),
                     Expanded(
                       child: Column(
@@ -345,16 +388,16 @@ class _SensorConfigScreenState extends State<SensorConfigScreen> {
                             'Important Notes:',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
-                              color: Colors.amber[800],
+                              color: AppTheme.error,
                             ),
                           ),
                           SizedBox(height: 4),
                           Text(
-                            '• Alerts will trigger when readings exceed these thresholds\n'
-                            '• Recommended pressure range: 30-35 PSI for most vehicles\n'
-                            '• Temperature alerts help prevent blowouts\n'
-                            '• Low battery alerts ensure sensor reliability',
-                            style: TextStyle(color: Colors.amber[700], fontSize: 13),
+                            'â€¢ Alerts will trigger when readings exceed these thresholds\n'
+                            'â€¢ Recommended pressure range: 30-35 PSI for most vehicles\n'
+                            'â€¢ Temperature alerts help prevent blowouts\n'
+                            'â€¢ Low battery alerts ensure sensor reliability',
+                            style: TextStyle(color: AppTheme.error.withValues(alpha: 0.8), fontSize: 13),
                           ),
                         ],
                       ),
@@ -372,8 +415,8 @@ class _SensorConfigScreenState extends State<SensorConfigScreen> {
                 child: ElevatedButton(
                   onPressed: _saveThresholds,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue[800],
-                    foregroundColor: Colors.white,
+                    backgroundColor: AppTheme.primary,
+                    foregroundColor: AppTheme.onBackground,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -391,3 +434,5 @@ class _SensorConfigScreenState extends State<SensorConfigScreen> {
     );
   }
 }
+
+

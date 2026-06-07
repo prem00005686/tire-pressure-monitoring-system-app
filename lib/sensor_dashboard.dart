@@ -1,14 +1,11 @@
-import 'dart:convert';
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
+import 'app_theme.dart';
 import 'sensor_id_store.dart';
 import 'sensor_decoder.dart';
 import 'sensor_status_controller.dart';
 import 'sensor_status.dart';
-import 'sensor_live_screen.dart';
 import 'dart:async';
-import 'spare_tire_manager.dart';
-import 'spare_tire_screen.dart';
-import 'tire_service_screen.dart';
+// removed unused imports
 
 class SensorDashboard extends StatefulWidget {
   @override
@@ -21,6 +18,7 @@ class _SensorDashboardState extends State<SensorDashboard> {
   Map<String, SensorStatusInfo> _sensorStatusInfo = {};
   Timer? _refreshTimer;
   bool _isLoading = true;
+  bool _isRefreshing = false;
 
   @override
   void initState() {
@@ -42,6 +40,9 @@ class _SensorDashboardState extends State<SensorDashboard> {
   }
 
   Future<void> _loadDashboardData() async {
+    if (_isRefreshing) return;
+    _isRefreshing = true;
+
     try {
       final boundSensors = await SensorIdStore.getBoundSensors();
       Map<String, SensorData> latestData = {};
@@ -81,6 +82,8 @@ class _SensorDashboardState extends State<SensorDashboard> {
         });
       }
       print('Error loading dashboard data: $e');
+    } finally {
+      _isRefreshing = false;
     }
   }
 
@@ -92,164 +95,360 @@ class _SensorDashboardState extends State<SensorDashboard> {
         .length;
 
     return Card(
-      elevation: 4,
-      child: Padding(
-        padding: EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.dashboard, color: Colors.blue[800], size: 28),
-                SizedBox(width: 12),
-                Text(
-                  'System Overview',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blue[800],
-                  ),
-                ),
-              ],
-            ),
-            SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildStatItem('Total Sensors',
-                      totalSensors.toString(), Icons.sensors, Colors.blue),
-                ),
-                Expanded(
-                  child: _buildStatItem(
-                      'Connected',
-                      connectedSensors.toString(),
-                      Icons.bluetooth_connected,
-                      Colors.green),
-                ),
-                Expanded(
-                  child: _buildStatItem(
-                      'Warnings',
-                      sensorsWithWarnings.toString(),
-                      Icons.warning,
-                      Colors.orange),
-                ),
-              ],
-            ),
-          ],
-        ),
+      elevation: 0,
+      margin: EdgeInsets.only(bottom: 24),
+      color: Color(0x00000000),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _buildStatItem('Total Sensors',
+                  totalSensors.toString(), Icons.sensors, AppTheme.outline),
+              ),
+              SizedBox(width: 16),
+              Expanded(
+                child: _buildStatItem(
+                    'Connected',
+                    connectedSensors.toString(),
+                    Icons.bluetooth_connected,
+                    AppTheme.primary),
+              ),
+              SizedBox(width: 16),
+              Expanded(
+                child: _buildStatItem(
+                    'Warning',
+                    sensorsWithWarnings.toString(),
+                    Icons.warning,
+                    AppTheme.error,
+                    isWarning: sensorsWithWarnings > 0),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildStatItem(
-      String label, String value, IconData icon, Color color) {
-    return Column(
-      children: [
-        Icon(icon, color: color, size: 32),
-        SizedBox(height: 8),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: color,
-          ),
+      String label, String value, IconData icon, Color color,
+      {bool isWarning = false}) {
+    final bool isConnected = label == 'Connected';
+
+    return Container(
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isWarning ? AppTheme.error : AppTheme.outlineVariant,
+          width: 1,
         ),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey[600],
+        gradient: (isWarning || isConnected)
+            ? null
+            : LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [AppTheme.surface, AppTheme.surface.withValues(alpha: 0.96)],
+              ),
+        boxShadow: isWarning
+            ? [
+                BoxShadow(
+                  color: AppTheme.error.withValues(alpha: 0.2),
+                  blurRadius: 4,
+                  spreadRadius: 0,
+                )
+              ]
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 6,
+                  offset: Offset(0, 2),
+                ),
+              ],
+      ),
+      child: Column(
+        children: [
+          Icon(icon, size: 18, color: color.withValues(alpha: 0.9)),
+          SizedBox(height: 6),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 48,
+              fontWeight: FontWeight.bold,
+              color: color,
+              height: 1,
+            ),
           ),
-          textAlign: TextAlign.center,
-        ),
-      ],
+          SizedBox(height: 8),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              color: isWarning || isConnected ? color : AppTheme.onSurfaceVariant,
+              fontFamily: 'JetBrains Mono',
+            ),
+            textAlign: TextAlign.center,
+          ),
+          if (isWarning || isConnected) ...[
+            SizedBox(height: 8),
+            Container(
+              height: 2,
+              width: double.infinity,
+              color: color.withValues(alpha: 0.3),
+            ),
+          ],
+        ],
+      ),
     );
   }
 
   Widget _buildSensorCard(BoundSensor sensor) {
     final data = _latestData[sensor.wheelLabel];
     final statusInfo = _sensorStatusInfo[sensor.wheelLabel];
+    final bool isWarning = statusInfo != null && SensorStatusController.shouldAlert(statusInfo);
 
-    return Card(
-      margin: EdgeInsets.symmetric(vertical: 4),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor:
-              statusInfo?.color.withOpacity(0.2) ?? Colors.grey[200],
-          child: statusInfo != null
-              ? SensorStatusController.buildStatusIcon(statusInfo, size: 20)
-              : Icon(Icons.sensors, color: Colors.grey),
+    return Container(
+      margin: EdgeInsets.symmetric(vertical: 8),
+      padding: EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isWarning ? AppTheme.error : AppTheme.outlineVariant, // outline-variant or error
         ),
-        title: Text(
-          sensor.wheelLabel,
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Sensor ID: ${sensor.sensorId}'),
-            if (data != null) ...[
-              SizedBox(height: 4),
+        boxShadow: isWarning
+            ? [
+                BoxShadow(
+                  color: AppTheme.error.withValues(alpha: 0.2),
+                  blurRadius: 4,
+                  spreadRadius: 0,
+                )
+              ]
+            : null,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
               Row(
                 children: [
-                  _buildQuickStat(
-                      Icons.speed,
-                      '${data.pressurePsi.toStringAsFixed(1)} PSI',
-                      Colors.blue),
-                  SizedBox(width: 16),
-                  _buildQuickStat(
-                      Icons.thermostat, '${data.temperature}°C', Colors.orange),
-                  SizedBox(width: 16),
-                  _buildQuickStat(
-                      Icons.battery_full,
-                      '${((data.battery / 255.0) * 100).round()}%',
-                      Colors.green),
+                  Icon(
+                    Icons.tire_repair,
+                    color: isWarning ? AppTheme.error : AppTheme.primary,
+                    size: 32,
+                  ),
+                  SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        sensor.wheelLabel,
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.onBackground, // on-surface
+                        ),
+                      ),
+                      Text(
+                        'ID: ${sensor.sensorId}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontFamily: 'JetBrains Mono',
+                          color: AppTheme.onSurfaceVariant, // on-surface-variant
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
-            ] else
-              Text('No data received',
-                  style: TextStyle(color: Colors.grey[500])),
-          ],
-        ),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (statusInfo != null)
-              SensorStatusController.buildStatusIndicator(statusInfo, size: 20),
-            SizedBox(height: 4),
-            Text(
-              statusInfo?.message ?? 'Unknown',
-              style: TextStyle(
-                fontSize: 10,
-                color: statusInfo?.color ?? Colors.grey,
-                fontWeight: FontWeight.w500,
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  if (isWarning)
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppTheme.error.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(50),
+                        border: Border.all(color: AppTheme.error.withValues(alpha: 0.3)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: AppTheme.error,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          SizedBox(width: 8),
+                          Text(
+                            statusInfo.message,
+                            style: TextStyle(
+                              color: AppTheme.error,
+                              fontSize: 12,
+                              fontFamily: 'JetBrains Mono',
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  if (isWarning) SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: () => _showUnbindSensorDialog(sensor),
+                    icon: Icon(Icons.link_off, size: 18),
+                    label: Text('Unbind'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppTheme.error,
+                      side: BorderSide(color: AppTheme.error.withValues(alpha: 0.35)),
+                      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          SizedBox(height: 16),
+          if (data != null) ...[
+            Container(
+              padding: EdgeInsets.only(top: 16),
+              decoration: BoxDecoration(
+                border: Border(top: BorderSide(color: AppTheme.outlineVariant)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _buildQuickStat(
+                      'PSI',
+                      data.pressurePsi.toStringAsFixed(0),
+                      isWarning ? AppTheme.error : AppTheme.primary,
+                    ),
+                  ),
+                  Container(width: 1, height: 40, color: AppTheme.outlineVariant),
+                  Expanded(
+                    child: _buildQuickStat(
+                      'Â°C',
+                      data.temperature.toStringAsFixed(0),
+                      AppTheme.onBackground,
+                    ),
+                  ),
+                  Container(width: 1, height: 40, color: AppTheme.outlineVariant),
+                  Expanded(
+                    child: _buildQuickStat(
+                      'Batt',
+                      '${((data.battery / 255.0) * 100).round()}%',
+                      AppTheme.onBackground,
+                    ),
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
-        onTap: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Sensor details for ${sensor.wheelLabel}'),
-              backgroundColor: Colors.blue[800],
+          ] else
+            Padding(
+              padding: EdgeInsets.only(top: 16),
+              child: Text(
+                'No data received',
+                style: TextStyle(color: AppTheme.outline),
+              ),
             ),
-          );
-        },
+        ],
       ),
     );
   }
 
-  Widget _buildQuickStat(IconData icon, String value, Color color) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
+  Future<void> _showUnbindSensorDialog(BoundSensor sensor) async {
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppTheme.surface,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+          side: BorderSide(color: AppTheme.outlineVariant.withValues(alpha: 0.9)),
+        ),
+        title: Text(
+          'Unbind ${sensor.wheelLabel}?',
+          style: TextStyle(
+            color: AppTheme.onBackground,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        content: Text(
+          'This will disconnect sensor ${sensor.sensorId} from ${sensor.wheelLabel} and remove it from the dashboard.',
+          style: TextStyle(
+            color: AppTheme.onSurfaceVariant,
+            height: 1.4,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            style: TextButton.styleFrom(
+              foregroundColor: AppTheme.onSurfaceVariant,
+            ),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.error,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
+            child: const Text('Unbind'),
+          ),
+        ],
+      ),
+    );
+
+    if (!mounted || confirm != true) return;
+
+    await SensorIdStore.unbindSensor(sensor.wheelLabel);
+    if (!mounted) return;
+
+    await _loadDashboardData();
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${sensor.wheelLabel} has been unbound'),
+        backgroundColor: Colors.green,
+      ),
+    );
+  }
+
+  Widget _buildQuickStat(String label, String value, Color color) {
+    return Column(
       children: [
-        Icon(icon, size: 14, color: color),
-        SizedBox(width: 4),
         Text(
           value,
           style: TextStyle(
-              fontSize: 12, color: color, fontWeight: FontWeight.w500),
+            fontSize: 28,
+            fontWeight: FontWeight.bold,
+            color: color,
+            height: 1,
+          ),
+        ),
+        SizedBox(height: 4),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontFamily: 'JetBrains Mono',
+            color: AppTheme.onSurfaceVariant,
+          ),
         ),
       ],
     );
@@ -267,83 +466,129 @@ class _SensorDashboardState extends State<SensorDashboard> {
     });
 
     if (criticalIssues.isEmpty) {
-      return Card(
-        color: Colors.green[50],
-        child: Padding(
-          padding: EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Icon(Icons.check_circle, color: Colors.green, size: 24),
-              SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'All sensors are operating normally',
-                  style: TextStyle(
-                    color: Colors.green[800],
-                    fontWeight: FontWeight.w500,
-                  ),
+      return Container(
+        padding: EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppTheme.surfaceHigh,
+          border: Border.all(color: AppTheme.outlineVariant),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.check_circle, color: AppTheme.primary, size: 24),
+            SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'All sensors are operating normally',
+                style: TextStyle(
+                  color: AppTheme.onBackground,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       );
     }
 
-    return Card(
-      color: Colors.red[50],
-      child: Padding(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.warning, color: Colors.red, size: 24),
-                SizedBox(width: 12),
-                Text(
-                  'Active Warnings (${criticalIssues.length})',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.red[800],
-                  ),
+    final bool isLight = Theme.of(context).brightness == Brightness.light;
+    final Color criticalBackground =
+        isLight ? const Color(0xFFE91E63) : const Color(0xFF8B1D4B);
+    final Color criticalOutline =
+        isLight ? const Color(0xFFC2185B) : const Color(0xFFB84D79);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: criticalBackground,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: criticalOutline),
+        boxShadow: [
+          BoxShadow(
+            color: criticalOutline.withValues(alpha: 0.35),
+            blurRadius: 10,
+            spreadRadius: 2,
+          )
+        ],
+      ),
+      padding: EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  shape: BoxShape.circle,
                 ),
-              ],
-            ),
-            SizedBox(height: 12),
-            ...criticalIssues
-                .take(5)
-                .map((issue) => Padding(
-                      padding: EdgeInsets.only(bottom: 4),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Icon(Icons.circle, size: 6, color: Colors.red[600]),
-                          SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              issue,
-                              style: TextStyle(color: Colors.red[700]),
+                child: Icon(Icons.warning, color: Colors.white, size: 24),
+              ),
+              SizedBox(width: 16),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'CRITICAL WARNING',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                  Text(
+                    '${criticalIssues.length} active issues',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          SizedBox(height: 16),
+          ...criticalIssues
+              .take(5)
+              .map((issue) => Padding(
+                    padding: EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: EdgeInsets.only(top: 6),
+                          child: Icon(Icons.circle, size: 8, color: AppTheme.error),
+                        ),
+                        SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            issue,
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
-                        ],
-                      ),
-                    ))
-                .toList(),
-            if (criticalIssues.length > 5)
-              Padding(
-                padding: EdgeInsets.only(top: 8),
-                child: Text(
-                  'And ${criticalIssues.length - 5} more issues...',
-                  style: TextStyle(
-                    color: Colors.red[600],
-                    fontStyle: FontStyle.italic,
-                  ),
+                        ),
+                      ],
+                    ),
+                  ))
+              .toList(),
+          if (criticalIssues.length > 5)
+            Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: Text(
+                'And ${criticalIssues.length - 5} more issues...',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.9),
+                  fontStyle: FontStyle.italic,
                 ),
               ),
-          ],
-        ),
+            ),
+        ],
       ),
     );
   }
@@ -351,11 +596,18 @@ class _SensorDashboardState extends State<SensorDashboard> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppTheme.background,
       appBar: AppBar(
-        title: Text('Sensor Dashboard'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.blue[800],
-        elevation: 0,
+        title: Row(
+          children: [
+            Icon(Icons.settings_input_antenna, color: AppTheme.primary),
+            SizedBox(width: 8),
+            Text('TPMS PRO'),
+          ],
+        ),
+        backgroundColor: AppTheme.surface,
+        foregroundColor: AppTheme.primary,
+        elevation: 0.5,
         actions: [
           IconButton(
             onPressed: _loadDashboardData,
@@ -364,7 +616,7 @@ class _SensorDashboardState extends State<SensorDashboard> {
         ],
       ),
       body: _isLoading
-          ? Center(child: CircularProgressIndicator())
+          ? Center(child: CircularProgressIndicator(color: AppTheme.primary))
           : RefreshIndicator(
               onRefresh: _loadDashboardData,
               child: SingleChildScrollView(
@@ -374,49 +626,55 @@ class _SensorDashboardState extends State<SensorDashboard> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildOverviewCard(),
-                    SizedBox(height: 16),
                     _buildWarningsCard(),
-                    SizedBox(height: 20),
+                    SizedBox(height: 32),
 
                     Text(
                       'Sensor Details',
                       style: TextStyle(
-                        fontSize: 18,
+                        fontSize: 20,
                         fontWeight: FontWeight.bold,
-                        color: Colors.blue[800],
+                        color: AppTheme.onBackground, // on-surface
                       ),
                     ),
-                    SizedBox(height: 12),
+                    SizedBox(height: 16),
 
                     if (_boundSensors.isEmpty)
-                      Card(
-                        child: Padding(
-                          padding: EdgeInsets.all(32),
-                          child: Column(
-                            children: [
-                              Icon(Icons.sensors_off,
-                                  size: 64, color: Colors.grey[400]),
-                              SizedBox(height: 16),
-                              Text(
-                                'No sensors configured',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  color: Colors.grey[600],
-                                ),
+                      Container(
+                        padding: EdgeInsets.all(32),
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: AppTheme.surfaceHigh,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppTheme.outlineVariant),
+                        ),
+                        child: Column(
+                          children: [
+                            Icon(Icons.sensors_off,
+                                size: 64, color: AppTheme.outline),
+                            SizedBox(height: 16),
+                            Text(
+                              'No sensors configured',
+                              style: TextStyle(
+                                fontSize: 18,
+                                color: AppTheme.onSurfaceVariant,
                               ),
-                              SizedBox(height: 8),
-                              Text(
-                                'Go to vehicle screens to bind sensors to wheels',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(color: Colors.grey[500]),
-                              ),
-                            ],
-                          ),
+                            ),
+                            SizedBox(height: 8),
+                            Text(
+                              'Go to vehicle screens to bind sensors to wheels',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: AppTheme.outline),
+                            ),
+                          ],
                         ),
                       )
                     else
-                      ..._boundSensors
-                          .map((sensor) => _buildSensorCard(sensor))
+                        ..._boundSensors
+                          .map((sensor) => Container(
+                            key: ValueKey(sensor.sensorId),
+                            child: _buildSensorCard(sensor),
+                            ))
                           .toList(),
 
                     SizedBox(height: 16),
@@ -428,7 +686,7 @@ class _SensorDashboardState extends State<SensorDashboard> {
                         '${DateTime.now().minute.toString().padLeft(2, '0')}:'
                         '${DateTime.now().second.toString().padLeft(2, '0')}',
                         style: TextStyle(
-                          color: Colors.grey[500],
+                          color: AppTheme.outline,
                           fontSize: 12,
                         ),
                       ),
@@ -440,3 +698,5 @@ class _SensorDashboardState extends State<SensorDashboard> {
     );
   }
 }
+
+

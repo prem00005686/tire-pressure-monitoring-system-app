@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>TPMS PRO - Scan &amp; Bind</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "surface-dim": "#eceef0",
+                        "inverse-on-surface": "#eff1f3",
+                        "on-tertiary-container": "#fefcff",
+                        "on-tertiary": "#ffffff",
+                        "surface-container-low": "#f2f4f6",
+                        "on-primary": "#ffffff",
+                        "on-secondary-container": "#54647a",
+                        "secondary-container": "#d0e1fb",
+                        "primary-fixed-dim": "#adc6ff",
+                        "secondary-fixed": "#d3e4fe",
+                        "on-secondary-fixed-variant": "#38485d",
+                        "surface-variant": "#e0e3e5",
+                        "tertiary-fixed": "#dae2fd",
+                        "outline-variant": "#c2c6d6",
+                        "surface-tint": "#005ac2",
+                        "tertiary-fixed-dim": "#bec6e0",
+                        "outline": "#727785",
+                        "on-primary-container": "#fefcff",
+                        "tertiary": "#545c72",
+                        "surface-container-lowest": "#ffffff",
+                        "primary-fixed": "#d8e2ff",
+                        "on-secondary": "#ffffff",
+                        "surface-container-high": "#e6e8ea",
+                        "on-tertiary-fixed-variant": "#3f465c",
+                        "error": "#ba1a1a",
+                        "secondary-fixed-dim": "#b7c8e1",
+                        "primary-container": "#2170e4",
+                        "inverse-primary": "#adc6ff",
+                        "on-surface": "#191c1e",
+                        "error-container": "#ffdad6",
+                        "surface": "#f7f9fb",
+                        "tertiary-container": "#6c748b",
+                        "on-background": "#191c1e",
+                        "inverse-surface": "#2d3133",
+                        "on-secondary-fixed": "#0b1c30",
+                        "on-surface-variant": "#424754",
+                        "primary": "#0058be",
+                        "surface-container": "#eceef0",
+                        "on-error-container": "#93000a",
+                        "on-primary-fixed": "#001a42",
+                        "background": "#f7f9fb",
+                        "surface-container-highest": "#e0e3e5",
+                        "secondary": "#505f76",
+                        "on-error": "#ffffff",
+                        "on-tertiary-fixed": "#131b2e",
+                        "surface-bright": "#f7f9fb",
+                        "on-primary-fixed-variant": "#004395"
+                    },
+                    borderRadius: {
+                        DEFAULT: "0.25rem",
+                        lg: "0.5rem",
+                        xl: "0.75rem",
+                        full: "9999px"
+                    },
+                    spacing: {
+                        "section-margin": "24px",
+                        "unit": "4px",
+                        "card-gap": "16px",
+                        "container-padding": "16px",
+                        "stack-gap": "12px"
+                    },
+                    fontFamily: {
+                        "headline-lg-mobile": ["Inter"],
+                        "display-reading": ["Inter"],
+                        "label-mono": ["JetBrains Mono"],
+                        "headline-lg": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "headline-md": ["Inter"]
+                    },
+                    fontSize: {
+                        "headline-lg-mobile": ["24px", { lineHeight: "32px", fontWeight: "600" }],
+                        "display-reading": ["48px", { lineHeight: "48px", letterSpacing: "-0.02em", fontWeight: "700" }],
+                        "label-mono": ["12px", { lineHeight: "16px", letterSpacing: "0.05em", fontWeight: "500" }],
+                        "headline-lg": ["32px", { lineHeight: "40px", fontWeight: "600" }],
+                        "body-lg": ["16px", { lineHeight: "24px", fontWeight: "400" }],
+                        "body-sm": ["14px", { lineHeight: "20px", fontWeight: "400" }],
+                        "headline-md": ["20px", { lineHeight: "28px", fontWeight: "600" }]
+                    },
+                    animation: {
+                        'radar-ping': 'radar-ping 2s cubic-bezier(0, 0, 0.2, 1) infinite',
+                        'radar-sweep': 'radar-sweep 3s linear infinite',
+                    },
+                    keyframes: {
+                        'radar-ping': {
+                            '75%, 100%': { transform: 'scale(2)', opacity: '0' },
+                        },
+                        'radar-sweep': {
+                            'from': { transform: 'rotate(0deg)' },
+                            'to': { transform: 'rotate(360deg)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .radar-sweep-gradient {
+            background: conic-gradient(from 0deg, transparent 0deg, transparent 270deg, rgba(33, 112, 228, 0.1) 360deg);
+        }
+        
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-background text-on-surface min-h-screen flex flex-col font-sans selection:bg-primary selection:text-on-primary">
+<!-- TopAppBar -->
+<header class="border-b border-surface-variant flex justify-between items-center w-full px-container-padding h-16 z-50 shrink-0 bg-surface-container-lowest">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary">settings_input_antenna</span>
+<h1 class="text-headline-lg-mobile font-headline-lg-mobile tracking-tight text-primary">TPMS PRO</h1>
+</div>
+<div class="flex items-center justify-center w-8 h-8 rounded-full bg-surface-container-high text-on-surface-variant border border-outline-variant overflow-hidden">
+<span class="material-symbols-outlined text-[20px]">person</span>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-1 overflow-y-auto no-scrollbar pb-32 pt-8 px-container-padding flex flex-col gap-section-margin relative">
+<!-- Radar Scanning Section -->
+<section class="flex flex-col items-center justify-center py-8">
+<div class="relative w-48 h-48 flex items-center justify-center mb-6 bg-surface-container-lowest rounded-full shadow-inner">
+<!-- Outer static rings -->
+<div class="absolute inset-0 rounded-full border border-primary/10"></div>
+<div class="absolute inset-4 rounded-full border border-primary/10"></div>
+<div class="absolute inset-8 rounded-full border border-primary/10"></div>
+<div class="absolute inset-12 rounded-full border border-primary/10"></div>
+<!-- Pulsing ring -->
+<div class="absolute inset-16 rounded-full border border-primary/30 animate-radar-ping"></div>
+<!-- Rotating Sweep -->
+<div class="absolute inset-0 rounded-full radar-sweep-gradient animate-radar-sweep origin-center" style="clip-path: circle(50% at 50% 50%);"></div>
+<!-- Center Icon -->
+<div class="relative z-10 w-16 h-16 bg-white rounded-full flex items-center justify-center border-2 border-primary shadow-sm">
+<span class="material-symbols-outlined text-primary text-[32px] animate-pulse">bluetooth_searching</span>
+</div>
+</div>
+<h2 class="font-headline-md text-headline-md-mobile text-on-surface mb-2">Scanning for Sensors...</h2>
+<p class="font-label-mono text-label-mono animate-pulse text-primary font-semibold">03 DEVICES IN RANGE</p>
+</section>
+<!-- Discovered Devices List -->
+<section class="flex flex-col gap-stack-gap">
+<div class="flex justify-between items-end border-b border-surface-variant pb-2 mb-2">
+<h3 class="font-label-mono text-label-mono uppercase tracking-wider text-on-surface-variant">Discovered Devices</h3>
+<span class="font-label-mono text-label-mono flex items-center gap-1 text-primary">
+<span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span> Active
+                </span>
+</div>
+<!-- Expanded Tile (Active Focus) -->
+<div class="bg-surface-container-lowest rounded-lg border border-outline-variant overflow-hidden flex flex-col shadow-md transition-all duration-300">
+<!-- Tile Header -->
+<button class="w-full px-4 py-4 flex items-center justify-between hover:bg-surface-container-low transition-colors text-left">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center border border-outline-variant">
+<span class="material-symbols-outlined text-primary text-[20px]">sensors</span>
+</div>
+<div>
+<h4 class="font-body-lg text-body-lg text-on-surface font-semibold">TPMS_Sensor_A1</h4>
+<p class="font-label-mono text-label-mono mt-1 text-on-surface-variant">ID: 8F2A-99B1</p>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<span class="px-2 py-1 rounded bg-secondary-container text-on-secondary-container font-label-mono text-[10px] uppercase">Decoded</span>
+<span class="material-symbols-outlined text-on-surface-variant transition-transform duration-300 rotate-180">expand_more</span>
+</div>
+</button>
+<!-- Expanded Content Area -->
+<div class="px-4 pb-4 border-t border-surface-variant/50 pt-4 bg-surface-container-low/30">
+<div class="grid grid-cols-2 gap-4 mb-6">
+<!-- Data Point: PSI -->
+<div class="bg-surface-container-lowest rounded border border-surface-variant p-3 flex flex-col items-center justify-center relative overflow-hidden">
+<span class="font-label-mono text-label-mono mb-1 z-10 text-on-surface-variant">PRESSURE</span>
+<div class="flex items-baseline gap-1 z-10">
+<span class="font-display-reading text-display-reading text-on-surface">32</span>
+<span class="font-label-mono text-label-mono text-on-surface-variant">PSI</span>
+</div>
+</div>
+<!-- Data Point: Temp -->
+<div class="bg-surface-container-lowest rounded border border-surface-variant p-3 flex flex-col items-center justify-center relative overflow-hidden">
+<span class="font-label-mono text-label-mono mb-1 z-10 text-on-surface-variant">TEMPERATURE</span>
+<div class="flex items-baseline gap-1 z-10">
+<span class="font-display-reading text-display-reading text-on-surface">25</span>
+<span class="font-label-mono text-label-mono text-on-surface-variant">°C</span>
+</div>
+</div>
+</div>
+<!-- Primary Action -->
+<button class="w-full bg-primary hover:bg-primary-container text-on-primary h-[56px] rounded-lg flex items-center justify-center font-headline-md text-headline-md-mobile transition-colors active:scale-[0.98]">
+<span class="material-symbols-outlined mr-2" style="font-variation-settings: 'FILL' 1;">link</span>
+                        Bind Sensor
+                    </button>
+</div>
+</div>
+<!-- Collapsed Tile 1 -->
+<div class="bg-surface-container-lowest rounded-lg border border-outline-variant overflow-hidden flex flex-col transition-all duration-300 opacity-80 hover:opacity-100">
+<button class="w-full px-4 py-4 flex items-center justify-between hover:bg-surface-container-low transition-colors text-left">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center">
+<span class="material-symbols-outlined text-on-surface-variant text-[20px]">sensors</span>
+</div>
+<div>
+<h4 class="font-body-lg text-body-lg text-on-surface font-semibold">Unknown_BLE_Device</h4>
+<p class="font-label-mono text-label-mono mt-1 text-on-surface-variant">RSSI: -72dBm</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant">expand_more</span>
+</button>
+</div>
+<!-- Collapsed Tile 2 -->
+<div class="bg-surface-container-lowest rounded-lg border border-outline-variant overflow-hidden flex flex-col transition-all duration-300 opacity-60 hover:opacity-100">
+<button class="w-full px-4 py-4 flex items-center justify-between hover:bg-surface-container-low transition-colors text-left">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center">
+<span class="material-symbols-outlined text-on-surface-variant text-[20px]">sensors</span>
+</div>
+<div>
+<h4 class="font-body-lg text-body-lg text-on-surface font-semibold">TPMS_Sensor_X9</h4>
+<p class="font-label-mono text-label-mono mt-1 text-on-surface-variant">RSSI: -85dBm</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant">expand_more</span>
+</button>
+</div>
+</section>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 w-full z-50 flex justify-around items-center px-4 pb-8 pt-3 border-t border-surface-variant bg-surface-container-lowest rounded-t-xl shadow-lg">
+<!-- Inactive Tab -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant px-4 py-1 hover:text-primary transition-colors group" href="#">
+<span class="material-symbols-outlined mb-1 group-hover:scale-110 transition-transform">dashboard</span>
+<span class="font-label-mono text-label-mono">Home</span>
+</a>
+<!-- Active Tab (Scan) -->
+<a class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-full px-4 py-2 active:scale-95 transition-all duration-200" href="#">
+<span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 1;">bluetooth_searching</span>
+<span class="font-label-mono text-label-mono font-bold">Scan</span>
+</a>
+<!-- Inactive Tab -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant px-4 py-1 hover:text-primary transition-colors group" href="#">
+<span class="material-symbols-outlined mb-1 group-hover:scale-110 transition-transform">tire_repair</span>
+<span class="font-label-mono text-label-mono">Spare</span>
+</a>
+<!-- Inactive Tab -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant px-4 py-1 hover:text-primary transition-colors group" href="#">
+<span class="material-symbols-outlined mb-1 group-hover:scale-110 transition-transform">settings</span>
+<span class="font-label-mono text-label-mono">Settings</span>
+</a>
+</nav>
+<!-- Ambient background glow for technical feel -->
+<div class="fixed inset-0 pointer-events-none z-[-1] bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/5 via-background to-background"></div>
+</body></html>

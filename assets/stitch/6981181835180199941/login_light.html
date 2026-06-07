@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>TPMS PRO - Login</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "error-container": "#ffdad6",
+                        "error": "#ba1a1a",
+                        "on-surface-variant": "#424754",
+                        "on-background": "#191c1e",
+                        "inverse-on-surface": "#eff1f3",
+                        "outline": "#727785",
+                        "secondary-fixed": "#d3e4fe",
+                        "surface-container": "#eceef0",
+                        "surface-container-high": "#e6e8ea",
+                        "primary-fixed": "#d8e2ff",
+                        "on-surface": "#191c1e",
+                        "on-primary-fixed-variant": "#004395",
+                        "surface-bright": "#f7f9fb",
+                        "surface-tint": "#005ac2",
+                        "secondary-container": "#d0e1fb",
+                        "on-primary-fixed": "#001a42",
+                        "primary": "#0058be",
+                        "on-secondary": "#ffffff",
+                        "background": "#f7f9fb",
+                        "on-tertiary-fixed-variant": "#3f465c",
+                        "on-error-container": "#93000a",
+                        "inverse-surface": "#2d3133",
+                        "outline-variant": "#c2c6d6",
+                        "secondary": "#505f76",
+                        "on-secondary-fixed": "#0b1c30",
+                        "primary-fixed-dim": "#adc6ff",
+                        "tertiary-fixed-dim": "#bec6e0",
+                        "surface-dim": "#d8dadc",
+                        "on-error": "#ffffff",
+                        "on-tertiary-fixed": "#131b2e",
+                        "surface-container-highest": "#e0e3e5",
+                        "surface-container-lowest": "#ffffff",
+                        "on-tertiary": "#ffffff",
+                        "on-secondary-fixed-variant": "#38485d",
+                        "on-tertiary-container": "#fefcff",
+                        "primary-container": "#2170e4",
+                        "tertiary": "#545c72",
+                        "inverse-primary": "#adc6ff",
+                        "surface-container-low": "#f2f4f6",
+                        "secondary-fixed-dim": "#b7c8e1",
+                        "tertiary-fixed": "#dae2fd",
+                        "on-secondary-container": "#54647a",
+                        "on-primary-container": "#fefcff",
+                        "on-primary": "#ffffff",
+                        "tertiary-container": "#6c748b",
+                        "surface": "#f7f9fb",
+                        "surface-variant": "#e0e3e5"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "unit": "4px",
+                        "container-max": "1440px",
+                        "margin-mobile": "16px",
+                        "gutter-desktop": "24px",
+                        "gutter-mobile": "16px",
+                        "margin-desktop": "32px",
+                        "container-padding": "16px"
+                    },
+                    "fontFamily": {
+                        "body-md": ["Inter"],
+                        "label-lg": ["Inter"],
+                        "display-lg": ["Inter"],
+                        "code": ["JetBrains Mono"],
+                        "headline-lg-mobile": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "headline-sm": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "label-mono": ["JetBrains Mono"]
+                    },
+                    "fontSize": {
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "label-lg": ["14px", { "lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "600" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "code": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "body-sm": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "headline-sm": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.02em", "fontWeight": "500" }],
+                        "label-mono": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined[data-weight="fill"] {
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        
+        /* Ambient Background Effect - Light Mode */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: radial-gradient(circle at 50% 0%, rgba(0, 88, 190, 0.03) 0%, transparent 60%);
+            pointer-events: none;
+            z-index: -1;
+        }
+        body {
+            min-height: max(884px, 100dvh);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background min-h-screen flex flex-col items-center justify-center p-container-padding antialiased">
+<main class="w-full max-w-md flex flex-col gap-8 z-10 relative">
+<!-- Header Section -->
+<header class="text-center flex flex-col items-center gap-4 mb-4">
+<div class="w-16 h-16 bg-surface-container-lowest rounded-2xl flex items-center justify-center border border-outline-variant shadow-sm mb-2 relative overflow-hidden">
+<div class="absolute inset-0 bg-primary opacity-5"></div>
+<span class="material-symbols-outlined text-4xl text-primary" data-icon="settings_input_antenna" data-weight="fill">settings_input_antenna</span>
+</div>
+<div>
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile md:font-headline-lg md:text-headline-lg text-primary tracking-tight mb-1">TPMS PRO</h1>
+<p class="font-body-sm text-body-sm text-on-surface-variant">System Authentication Required</p>
+</div>
+</header>
+<!-- Login Form Card -->
+<form class="bg-surface-container-lowest rounded-xl p-6 border border-outline-variant shadow-md flex flex-col gap-6" onsubmit="event.preventDefault(); window.location.href='#';">
+<div class="flex flex-col gap-4">
+<!-- Email Field -->
+<div class="flex flex-col gap-2">
+<label class="font-label-mono text-label-mono text-on-surface-variant" for="email">USER IDENTIFICATION</label>
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline group-focus-within:text-primary transition-colors" data-icon="person">person</span>
+<input class="w-full bg-surface-container-low border border-outline-variant rounded-lg pl-12 pr-4 py-4 text-on-surface font-body-lg focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-all placeholder:text-outline/40" id="email" name="email" placeholder="Driver ID or Email" required="" type="email"/>
+</div>
+</div>
+<!-- Password Field -->
+<div class="flex flex-col gap-2">
+<label class="font-label-mono text-label-mono text-on-surface-variant" for="password">ACCESS KEY</label>
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline group-focus-within:text-primary transition-colors" data-icon="key">key</span>
+<input class="w-full bg-surface-container-low border border-outline-variant rounded-lg pl-12 pr-4 py-4 text-on-surface font-body-lg focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-all placeholder:text-outline/40" id="password" name="password" placeholder="Enter passcode" required="" type="password"/>
+</div>
+</div>
+</div>
+<!-- Actions -->
+<div class="flex flex-col gap-4 mt-2">
+<button class="w-full h-14 bg-primary text-on-primary font-headline-md text-headline-md rounded-lg hover:bg-primary-container transition-colors active:scale-[0.98] flex items-center justify-center gap-2" type="submit">
+<span>Initialize System</span>
+<span class="material-symbols-outlined" data-icon="arrow_forward">arrow_forward</span>
+</button>
+<div class="flex items-center justify-between mt-2">
+<a class="font-label-mono text-label-mono text-primary hover:underline transition-colors" href="#">Emergency Bypass</a>
+<a class="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" href="#">System Diagnostics</a>
+</div>
+</div>
+</form>
+<!-- Decorative Footer -->
+<footer class="text-center mt-8 opacity-60">
+<p class="font-label-mono text-label-mono text-outline">SECURE CONNECTION ENCRYPTED</p>
+<div class="flex justify-center gap-1 mt-2">
+<div class="w-1 h-1 rounded-full bg-primary animate-pulse"></div>
+<div class="w-1 h-1 rounded-full bg-primary animate-pulse" style="animation-delay: 150ms;"></div>
+<div class="w-1 h-1 rounded-full bg-primary animate-pulse" style="animation-delay: 300ms;"></div>
+</div>
+</footer>
+</main>
+<script>
+        // Form interaction script
+        const inputs = document.querySelectorAll('input');
+        inputs.forEach(input => {
+            input.addEventListener('focus', () => {
+                input.parentElement.parentElement.querySelector('label').classList.add('text-primary');
+                input.parentElement.parentElement.querySelector('label').classList.remove('text-on-surface-variant');
+            });
+            input.addEventListener('blur', () => {
+                input.parentElement.parentElement.querySelector('label').classList.remove('text-primary');
+                input.parentElement.parentElement.querySelector('label').classList.add('text-on-surface-variant');
+            });
+        });
+    </script>
+</body></html>

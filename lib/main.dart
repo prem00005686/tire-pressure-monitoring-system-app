@@ -1,5 +1,8 @@
-import 'dart:convert';
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
+import 'dart:ui' as ui;
+import 'dart:async';
+import 'dart:typed_data';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'sensor_dashboard.dart';
 import 'sensor_status.dart';
@@ -10,21 +13,259 @@ import 'sensor_decoder.dart';
 import 'sensor_status_controller.dart';
 import 'threshold_settings_screen.dart';
 import 'spare_tire_manager.dart';
-import 'spare_tire_screen.dart';
-import 'tire_service_screen.dart';
+import 'app_theme.dart';
+import 'error_boundary.dart';
+// removed unused imports (duplicates exist elsewhere)
 
-void main() => runApp(MyApp());
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  // Clear stale sensor data on first app run
+  await _initializeAppData();
+  runApp(MyApp());
+}
 
-class MyApp extends StatelessWidget {
+Future<void> _initializeAppData() async {
+  final prefs = await SharedPreferences.getInstance();
+  const String _firstRunKey = 'app_initialized';
+  
+  // Validate and cleanup sensor data to prevent corruption
+  await SensorIdStore.validateAndCleanupSensorData();
+  
+  // Check if this is the first run (key not set or false)
+  if (!(prefs.getBool(_firstRunKey) ?? false)) {
+    // First run - clear any stale data
+    await SensorIdStore.clearAllData();
+    await prefs.setBool(_firstRunKey, true);
+  }
+}
+
+// Widget that loads an asset image, removes near-white background pixels (makes them transparent),
+// and returns a RawImage so it can be composited over the provided background color.
+class RecolorAssetBackground extends StatefulWidget {
+  final String imagePath;
+  final BoxFit fit;
+  final Color backgroundColor;
+  final ImageErrorWidgetBuilder? errorBuilder;
+
+  const RecolorAssetBackground({Key? key, required this.imagePath, this.fit = BoxFit.contain, required this.backgroundColor, this.errorBuilder}) : super(key: key);
+
+  @override
+  _RecolorAssetBackgroundState createState() => _RecolorAssetBackgroundState();
+}
+
+class _RecolorAssetBackgroundState extends State<RecolorAssetBackground> {
+  static final Map<String, ui.Image> _cache = {};
+  ui.Image? _image;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAndProcess();
+  }
+
+  Future<void> _loadAndProcess() async {
+    final cacheKey = '${widget.imagePath}-${widget.backgroundColor.value}-${AppTheme.currentThemeMode}';
+    if (_cache.containsKey(cacheKey)) {
+      setState(() => _image = _cache[cacheKey]);
+      return;
+    }
+
+    try {
+      final bytes = (await rootBundle.load(widget.imagePath)).buffer.asUint8List();
+      final codec = await ui.instantiateImageCodec(bytes);
+      final frame = await codec.getNextFrame();
+      final ui.Image src = frame.image;
+      final bd = await src.toByteData(format: ui.ImageByteFormat.rawRgba);
+      if (bd == null) throw Exception('Failed to read image bytes');
+
+      final pixels = bd.buffer.asUint8List();
+      for (int i = 0; i < pixels.length; i += 4) {
+        final r = pixels[i];
+        final g = pixels[i + 1];
+        final b = pixels[i + 2];
+        // if pixel is near-white, make it transparent
+        if (r > 240 && g > 240 && b > 240) {
+          pixels[i + 3] = 0;
+        }
+      }
+
+      final processed = await _decodeImageFromPixels(pixels, src.width, src.height);
+      _cache[cacheKey] = processed;
+      if (mounted) setState(() => _image = processed);
+    } catch (e, st) {
+      if (widget.errorBuilder != null) {
+        // leave _image null so build shows errorBuilder
+        setState(() {});
+      } else {
+        debugPrint('RecolorAssetBackground error: $e\n$st');
+      }
+    }
+  }
+
+  Future<ui.Image> _decodeImageFromPixels(Uint8List pixels, int width, int height) {
+    final completer = Completer<ui.Image>();
+    ui.decodeImageFromPixels(pixels, width, height, ui.PixelFormat.rgba8888, (img) {
+      completer.complete(img);
+    });
+    return completer.future;
+  }
+
   @override
   Widget build(BuildContext context) {
+    return Container(
+      color: widget.backgroundColor,
+      child: _image != null
+          ? RawImage(image: _image, fit: widget.fit)
+          : Image.asset(widget.imagePath, fit: widget.fit, errorBuilder: widget.errorBuilder ?? (c, e, st) => const SizedBox.shrink()),
+    );
+  }
+}
+
+class MyApp extends StatefulWidget {
+  @override
+  _MyAppState createState() => _MyAppState();
+
+  static _MyAppState? of(BuildContext context) {
+    return context.findAncestorStateOfType<_MyAppState>();
+  }
+}
+
+class _MyAppState extends State<MyApp> {
+  ThemeMode _themeMode = ThemeMode.dark;
+  bool _themeLoaded = false;
+  Widget? _errorWidget;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadThemeMode();
+    // Catch uncaught Flutter errors
+    FlutterError.onError = (FlutterErrorDetails details) {
+      debugPrint('FlutterError caught: ${details.exception}');
+      if (mounted) {
+        setState(() {
+          _errorWidget = _buildErrorRecoveryWidget(details);
+        });
+      }
+    };
+  }
+
+  Future<void> _loadThemeMode() async {
+    try {
+      ThemeMode mode = await ThemeService.loadThemeMode();
+      if (mounted) {
+        setState(() {
+          _themeMode = mode;
+          _themeLoaded = true;
+        });
+      }
+      AppTheme.currentThemeMode = mode;
+    } catch (e) {
+      debugPrint('Theme loading error: $e');
+      if (mounted) {
+        setState(() {
+          _themeLoaded = true;
+        });
+      }
+    }
+  }
+
+  Future<void> updateThemeMode(ThemeMode mode) async {
+    await ThemeService.saveThemeMode(mode);
+    AppTheme.currentThemeMode = mode;
+    if (mounted) {
+      setState(() {
+        _themeMode = mode;
+      });
+    }
+  }
+
+  ThemeMode get themeMode => _themeMode;
+
+  Widget _buildErrorRecoveryWidget(FlutterErrorDetails details) {
     return MaterialApp(
       title: 'TPMS App',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        scaffoldBackgroundColor: Colors.white,
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: _themeMode,
+      home: Scaffold(
+        backgroundColor: AppTheme.background,
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline, size: 64, color: AppTheme.error),
+              const SizedBox(height: 24),
+              Text(
+                'System Error',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.onBackground,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 32.0),
+                child: Text(
+                  'An error occurred. Please restart the app.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: AppTheme.onSurfaceVariant,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 32),
+              ElevatedButton(
+                onPressed: () {
+                  setState(() {
+                    _errorWidget = null;
+                  });
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (context) => LoginScreen()),
+                    (route) => false,
+                  );
+                },
+                child: const Text('Return to Home'),
+              ),
+            ],
+          ),
+        ),
       ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_errorWidget != null) {
+      return _errorWidget!;
+    }
+
+    if (!_themeLoaded) {
+      return MaterialApp(
+        title: 'TPMS App',
+        theme: AppTheme.lightTheme,
+        darkTheme: AppTheme.darkTheme,
+        themeMode: ThemeMode.dark,
+        home: Scaffold(
+          backgroundColor: AppTheme.background,
+          body: Center(child: CircularProgressIndicator(color: AppTheme.primary)),
+        ),
+      );
+    }
+
+    return MaterialApp(
+      title: 'TPMS App',
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: _themeMode,
       home: SplashScreen(),
+      builder: (context, child) {
+        return ErrorBoundary(
+          child: child ?? const SizedBox(),
+        );
+      },
     );
   }
 }
@@ -62,15 +303,20 @@ class UserService {
 
   static Future<bool> isLoggedIn() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_isLoggedInKey) ?? false;
+    final bool? loggedIn = prefs.getBool(_isLoggedInKey);
+    if (loggedIn != null) {
+      return loggedIn;
+    }
+    return (await getUser()) != null;
   }
 
-  static Future<void> saveUser(User user) async {
+  static Future<bool> saveUser(User user) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_userKey, user.email);
-    await prefs.setString('user_phone', user.phoneNumber);
-    await prefs.setString('user_name', user.userName);
-    await prefs.setBool(_isLoggedInKey, true);
+    final savedEmail = await prefs.setString(_userKey, user.email);
+    final savedPhone = await prefs.setString('user_phone', user.phoneNumber);
+    final savedName = await prefs.setString('user_name', user.userName);
+    final savedLoggedIn = await prefs.setBool(_isLoggedInKey, true);
+    return savedEmail && savedPhone && savedName && savedLoggedIn;
   }
 
   static Future<User?> getUser() async {
@@ -94,97 +340,28 @@ class UserService {
   }
 }
 
-// Spare Tire Manager class
-// Spare Tire Manager class
-class SpareTireManager {
-  static const String _spareTireKey = 'spare_tire_sensor';
+class ThemeService {
+  static const String _themeModeKey = 'theme_mode';
 
-  static Future<BoundSensor?> getSpareTireSensor() async {
+  static Future<ThemeMode> loadThemeMode() async {
     final prefs = await SharedPreferences.getInstance();
-    final sensorIdString = prefs.getString(_spareTireKey);
-
-    if (sensorIdString != null) {
-      try {
-        // Import dart:convert at the top of your file
-        Map<String, dynamic> sensorMap = Map<String, dynamic>.from(
-            json.decode(sensorIdString) // Use json.decode instead of jsonDecode
-            );
-
-        return BoundSensor(
-          wheelLabel: 'Spare Tire',
-          sensorId: sensorMap['sensorId'] ?? '',
-          deviceId: sensorMap['deviceId'] ?? '',
-          thresholds: SensorThresholds.defaultValues(),
-          boundAt: DateTime.now(),
-        );
-      } catch (e) {
-        print('Error parsing spare tire sensor: $e');
-        return null;
-      }
+    final value = prefs.getString(_themeModeKey) ?? 'dark';
+    switch (value) {
+      case 'light':
+        return ThemeMode.light;
+      case 'dark':
+      default:
+        return ThemeMode.dark;
     }
-    return null;
   }
 
-  static Future<void> saveSpareTireSensor(BoundSensor sensor) async {
+  static Future<bool> saveThemeMode(ThemeMode mode) async {
     final prefs = await SharedPreferences.getInstance();
-    Map<String, dynamic> sensorMap = {
-      'sensorId': sensor.sensorId,
-      'deviceId': sensor.deviceId,
-      'wheelLabel': 'Spare Tire',
-      'thresholds': sensor.thresholds.toJson(),
-      'boundAt': sensor.boundAt.millisecondsSinceEpoch,
-    };
-    await prefs.setString(_spareTireKey,
-        json.encode(sensorMap)); // Use json.encode instead of jsonEncode
-  }
-
-  static Future<void> removeSpareTireSensor() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_spareTireKey);
-  }
-
-  // Rest of the code remains the same
-
-  static Future<void> registerSpareTireSensor({
-    required String sensorId,
-    required String deviceId,
-    SensorThresholds? thresholds,
-  }) async {
-    final prefs = await SharedPreferences.getInstance();
-
-    // Create bound sensor for spare tire
-    final spareTire = BoundSensor(
-      wheelLabel: 'Spare Tire',
-      sensorId: sensorId,
-      deviceId: deviceId,
-      thresholds: thresholds ?? SensorThresholds.defaultValues(),
-      boundAt: DateTime.now(),
-    );
-
-    // Save to SharedPreferences using the saveSpareTireSensor method
-    await saveSpareTireSensor(spareTire);
-
-    // Also bind this sensor in the regular sensor store for data tracking
-    await SensorIdStore.bindSensor(
-      wheelLabel: 'Spare Tire',
-      sensorId: sensorId,
-      deviceId: deviceId,
-      thresholds: thresholds,
-    );
-
-    // Update global sensor status
-    updateSensorStatus(
-        'Spare Tire',
-        SensorStatus(
-          connected: true,
-          statusColor: Colors.blue,
-          warningIcons: [
-            Icon(Icons.trip_origin, color: Colors.white, size: 12)
-          ],
-          message: 'Spare Tire',
-        ));
+    return prefs.setString(_themeModeKey, mode == ThemeMode.light ? 'light' : 'dark');
   }
 }
+
+// SpareTireManager moved to its own module: lib/spare_tire_manager.dart
 
 // Splash Screen
 class SplashScreen extends StatefulWidget {
@@ -198,12 +375,22 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    _checkLoginStatus();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkLoginStatus();
+    });
   }
 
   Future<void> _checkLoginStatus() async {
-    await Future.delayed(Duration(seconds: 2));
-    bool isLoggedIn = await UserService.isLoggedIn();
+    bool isLoggedIn = false;
+
+    try {
+      await Future.delayed(Duration(seconds: 2));
+      isLoggedIn = await UserService.isLoggedIn()
+          .timeout(Duration(seconds: 5), onTimeout: () => false);
+    } catch (e) {
+      print('Splash login check failed: $e');
+      isLoggedIn = false;
+    }
 
     if (mounted) {
       if (isLoggedIn) {
@@ -223,23 +410,126 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              'TPMS App',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.black,
+      backgroundColor: AppTheme.background,
+      body: Stack(
+        children: [
+          Align(
+            child: Container(
+              width: MediaQuery.of(context).size.width * 0.8,
+              height: MediaQuery.of(context).size.width * 0.8,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppTheme.primary.withValues(alpha: 0.06),
               ),
             ),
-            SizedBox(height: 30),
-            CircularProgressIndicator(color: Colors.blue),
-          ],
-        ),
+          ),
+          Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 128,
+                  height: 128,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppTheme.surfaceHigh,
+                    border: Border.all(color: AppTheme.outlineVariant),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppTheme.primary.withValues(alpha: 0.12),
+                        blurRadius: 28,
+                        spreadRadius: 2,
+                      ),
+                    ],
+                  ),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Positioned.fill(
+                        child: Padding(
+                          padding: const EdgeInsets.all(8),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: AppTheme.primary.withValues(alpha: 0.1),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      Icon(
+                        Icons.settings_input_antenna,
+                        size: 62,
+                        color: AppTheme.primary,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 28),
+                Text(
+                  'TPMS PRO',
+                  style: TextStyle(
+                    fontSize: 46,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.onBackground,
+                    letterSpacing: -1.0,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: AppTheme.primary,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Diagnostic System',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontFamily: 'JetBrains Mono',
+                        letterSpacing: 1.2,
+                        color: AppTheme.secondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          Positioned(
+            left: 48,
+            right: 48,
+            bottom: 64,
+            child: Column(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: LinearProgressIndicator(
+                    minHeight: 4,
+                    valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primary),
+                    backgroundColor: AppTheme.outlineVariant,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  'Loading initial services...',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontFamily: 'JetBrains Mono',
+                    color: AppTheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -254,53 +544,122 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
-  final _phoneController = TextEditingController();
-  final _nameController = TextEditingController();
+  final _passwordController = TextEditingController();
   bool _isLoading = false;
 
   @override
   void dispose() {
     _emailController.dispose();
-    _phoneController.dispose();
-    _nameController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 
   Future<void> _handleLogin() async {
-    if (_formKey.currentState!.validate()) {
-      setState(() {
-        _isLoading = true;
-      });
+    if (!_formKey.currentState!.validate()) return;
 
+    setState(() {
+      _isLoading = true;
+    });
+
+    bool saveSuccess = true;
+    try {
       await Future.delayed(Duration(seconds: 1));
 
       User user = User(
         email: _emailController.text.trim(),
-        phoneNumber: _phoneController.text.trim(),
-        userName: _nameController.text.trim(),
+        phoneNumber: _passwordController.text.trim(),
+        userName: _emailController.text.trim(),
       );
 
-      await UserService.saveUser(user);
-
+      saveSuccess = await UserService.saveUser(user);
+      if (!saveSuccess) {
+        debugPrint('User save failed: SharedPreferences did not persist all values.');
+      }
+    } catch (e, st) {
+      saveSuccess = false;
+      debugPrint('Login initialization failed: $e');
+      debugPrint('$st');
+    } finally {
       if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => DashboardScreen()),
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+
+    if (!mounted) return;
+
+    if (!saveSuccess) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not persist user details. Please check app permissions or reinstall the app.'),
+          backgroundColor: AppTheme.warningContainer,
+        ),
+      );
+    }
+
+    try {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => DashboardScreen()),
+      );
+    } catch (e, st) {
+      debugPrint('Dashboard navigation failed: $e');
+      debugPrint('$st');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Unable to open dashboard. Please restart the app.'),
+            backgroundColor: AppTheme.error,
+          ),
         );
       }
-
-      setState(() {
-        _isLoading = false;
-      });
     }
   }
 
-  String? _validateEmail(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Please enter your email';
+  Future<void> _showSystemDiagnostics() async {
+    bool loggedIn = false;
+    User? currentUser;
+    String error = 'None';
+
+    try {
+      loggedIn = await UserService.isLoggedIn();
+      currentUser = await UserService.getUser();
+    } catch (e) {
+      error = e.toString();
     }
-    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
-      return 'Please enter a valid email';
+
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('System Diagnostics'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Logged in flag: $loggedIn'),
+              Text('User stored: ${currentUser != null ? currentUser.userName : 'None'}'),
+              const SizedBox(height: 12),
+              Text('Error: $error'),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  String? _validateName(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Please enter your name';
     }
     return null;
   }
@@ -310,17 +669,7 @@ class _LoginScreenState extends State<LoginScreen> {
       return 'Please enter your phone number';
     }
     if (value.length < 10) {
-      return 'Please enter a valid phone number';
-    }
-    return null;
-  }
-
-  String? _validateName(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Please enter your name';
-    }
-    if (value.length < 2) {
-      return 'Name must be at least 2 characters';
+      return 'Phone number must be at least 10 digits';
     }
     return null;
   }
@@ -328,147 +677,215 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppTheme.background,
       resizeToAvoidBottomInset: true,
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                SizedBox(height: 20),
-                Container(
-                  width: 120,
-                  height: 120,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.withOpacity(0.3),
-                        spreadRadius: 2,
-                        blurRadius: 5,
-                        offset: Offset(0, 3),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: IgnorePointer(
+                child: Align(
+                  alignment: const Alignment(0, -1.1),
+                  child: Container(
+                    width: MediaQuery.of(context).size.width * 1.2,
+                    height: MediaQuery.of(context).size.width * 1.2,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppTheme.primary.withValues(alpha: 0.04),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Container(
+                  constraints: const BoxConstraints(maxWidth: 420),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const SizedBox(height: 8),
+                    Center(
+                      child: Container(
+                        width: 64,
+                        height: 64,
+                        decoration: BoxDecoration(
+                          color: AppTheme.surface,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: AppTheme.outlineVariant),
+                        ),
+                        child: Icon(
+                          Icons.settings_input_antenna,
+                          size: 36,
+                          color: AppTheme.primary,
+                        ),
                       ),
-                    ],
-                  ),
-                  child: ClipOval(
-                    child: Image.asset(
-                      'assets/images/wheels_india_logo.png',
-                      width: 100,
-                      height: 100,
-                      fit: BoxFit.contain,
-                      errorBuilder: (context, error, stackTrace) {
-                        // Fallback if image fails to load
-                        return Icon(
-                          Icons.tire_repair,
-                          size: 60,
-                          color: Colors.blue[800],
-                        );
-                      },
                     ),
-                  ),
-                ),
-                SizedBox(height: 12),
-                Text(
-                  'WHEELS INDIA LIMITED',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blue[800],
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                SizedBox(height: 16),
-                Text(
-                  'Welcome to TPMS',
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                  textAlign: TextAlign.center,
-                ),
-                SizedBox(height: 6),
-                Text(
-                  'Please enter your details to continue',
-                  style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                  textAlign: TextAlign.center,
-                ),
-                SizedBox(height: 30),
-                TextFormField(
-                  controller: _nameController,
-                  validator: _validateName,
-                  decoration: InputDecoration(
-                    labelText: 'Full Name',
-                    prefixIcon: Icon(Icons.person, color: Colors.blue),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                    const SizedBox(height: 18),
+                    Text(
+                      'TPMS PRO',
+                      style: TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.primary,
+                        letterSpacing: -0.8,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.blue),
+                    const SizedBox(height: 8),
+                    Text(
+                      'System Authentication Required',
+                      style: TextStyle(fontSize: 14, color: AppTheme.onSurfaceVariant),
+                      textAlign: TextAlign.center,
                     ),
-                    contentPadding:
-                        EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  ),
+                    const SizedBox(height: 24),
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: AppTheme.surface,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppTheme.outlineVariant),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.08),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          TextFormField(
+                            controller: _emailController,
+                            validator: _validateName,
+                            keyboardType: TextInputType.name,
+                            style: TextStyle(color: AppTheme.onBackground),
+                            decoration: InputDecoration(
+                              filled: true,
+                              fillColor: AppTheme.surfaceHigh,
+                              labelText: 'Name',
+                              labelStyle: TextStyle(
+                                fontFamily: 'JetBrains Mono',
+                                fontSize: 12,
+                                letterSpacing: 1.0,
+                                color: AppTheme.onSurfaceVariant,
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide(color: AppTheme.outlineVariant),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide(color: AppTheme.primary),
+                              ),
+                              prefixIcon: const Icon(Icons.person),
+                              hintText: 'Enter your name',
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _passwordController,
+                            validator: _validatePhone,
+                            keyboardType: TextInputType.phone,
+                            obscureText: false,
+                            style: TextStyle(color: AppTheme.onBackground),
+                            decoration: InputDecoration(
+                              filled: true,
+                              fillColor: AppTheme.surfaceHigh,
+                              labelText: 'Phone Number',
+                              labelStyle: TextStyle(
+                                fontFamily: 'JetBrains Mono',
+                                fontSize: 12,
+                                letterSpacing: 1.0,
+                                color: AppTheme.onSurfaceVariant,
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide(color: AppTheme.outlineVariant),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide(color: AppTheme.primary),
+                              ),
+                              prefixIcon: const Icon(Icons.phone),
+                              hintText: 'Enter your phone number',
+                            ),
+                          ),
+                          const SizedBox(height: 28),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              minimumSize: const Size(double.infinity, 56),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            onPressed: _isLoading ? null : _handleLogin,
+                            child: _isLoading
+                                ? SizedBox(
+                                    height: 24,
+                                    width: 24,
+                                    child: CircularProgressIndicator(
+                                      color: AppTheme.onPrimary,
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Text('Initialize System'),
+                                      SizedBox(width: 8),
+                                      Icon(Icons.arrow_forward, size: 20),
+                                    ],
+                                  ),
+                          ),
+                          const SizedBox(height: 16),
+                          // Emergency Bypass and System Diagnostics removed for production build
+                          const SizedBox.shrink(),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Text(
+                      'SECURE CONNECTION ENCRYPTED',
+                      style: TextStyle(
+                        fontFamily: 'JetBrains Mono',
+                        fontSize: 12,
+                        color: AppTheme.outline.withValues(alpha: 0.5),
+                        letterSpacing: 2,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(
+                        3,
+                        (index) => Container(
+                          width: 4,
+                          height: 4,
+                          margin: const EdgeInsets.symmetric(horizontal: 2),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primary.withValues(alpha: 0.8),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                 ),
-                SizedBox(height: 12),
-                TextFormField(
-                  controller: _emailController,
-                  validator: _validateEmail,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: InputDecoration(
-                    labelText: 'Email',
-                    prefixIcon: Icon(Icons.email, color: Colors.blue),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.blue),
-                    ),
-                    contentPadding:
-                        EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  ),
-                ),
-                SizedBox(height: 12),
-                TextFormField(
-                  controller: _phoneController,
-                  validator: _validatePhone,
-                  keyboardType: TextInputType.phone,
-                  decoration: InputDecoration(
-                    labelText: 'Phone Number',
-                    prefixIcon: Icon(Icons.phone, color: Colors.blue),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.blue),
-                    ),
-                    contentPadding:
-                        EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  ),
-                ),
-                SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: _isLoading ? null : _handleLogin,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue[800],
-                    foregroundColor: Colors.white,
-                    padding: EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: _isLoading
-                      ? CircularProgressIndicator(color: Colors.white)
-                      : Text('Login', style: TextStyle(fontSize: 16)),
-                ),
-                SizedBox(height: 20),
-              ],
+              ),
             ),
           ),
+        ),
+          ],
         ),
       ),
     );
@@ -493,10 +910,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Future<void> _loadUser() async {
     User? user = await UserService.getUser();
+    if (!mounted) return;
     setState(() {
       _currentUser = user;
     });
   }
+
 
   void navigateToVehicle(String type) {
     Widget screen;
@@ -525,18 +944,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       key: _scaffoldKey,
       drawer: AppDrawer(currentUser: _currentUser),
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
+        title: const Text('Dashboard'),
         leading: IconButton(
-          icon: Icon(Icons.menu, color: Colors.blue[800]),
+          icon: const Icon(Icons.menu),
           onPressed: () => _scaffoldKey.currentState?.openDrawer(),
         ),
-        title: Text(
-          'Dashboard',
-          style:
-              TextStyle(color: Colors.blue[800], fontWeight: FontWeight.bold),
-        ),
-        centerTitle: true,
       ),
       body: Center(
         child: Column(
@@ -550,7 +962,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w500,
-                    color: Colors.blue[800],
+                    color: AppTheme.primary,
                   ),
                 ),
               ),
@@ -567,23 +979,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       height: 80,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: Colors.black,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.3),
-                            spreadRadius: 2,
-                            blurRadius: 5,
-                            offset: Offset(0, 3),
-                          ),
-                        ],
+                        color: AppTheme.surface,
+                        border: Border.all(color: AppTheme.primary.withValues(alpha: 0.35), width: 1.2),
                       ),
                       child: Center(
                         child: Text(
                           type,
                           style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12),
+                              color: AppTheme.onBackground,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13),
                         ),
                       ),
                     ),
@@ -607,15 +1012,17 @@ class AppDrawer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Drawer(
+      backgroundColor: AppTheme.surface,
       child: SafeArea(
         child: Column(
           children: [
             Container(
-              padding: EdgeInsets.all(20),
+              padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.blue[50],
+                color: AppTheme.surfaceHigh,
                 border: Border(
-                    bottom: BorderSide(color: Colors.blue.withOpacity(0.2))),
+                  bottom: BorderSide(color: AppTheme.outlineVariant),
+                ),
               ),
               child: Column(
                 children: [
@@ -624,31 +1031,30 @@ class AppDrawer extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
-                      color: Colors.blue[800],
+                      color: AppTheme.primary,
                     ),
                     textAlign: TextAlign.center,
                   ),
-                  SizedBox(height: 15),
+                  const SizedBox(height: 15),
                   CircleAvatar(
                     radius: 30,
-                    backgroundColor: Colors.blue[100],
-                    child:
-                        Icon(Icons.person, size: 30, color: Colors.blue[800]),
+                    backgroundColor: AppTheme.background,
+                    child: Icon(Icons.person, size: 30, color: AppTheme.primary),
                   ),
-                  SizedBox(height: 10),
+                  const SizedBox(height: 10),
                   Text(
                     currentUser?.userName ?? 'User',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.onBackground),
                   ),
                   if (currentUser != null) ...[
-                    SizedBox(height: 5),
+                    const SizedBox(height: 5),
                     Text(
                       currentUser!.email,
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      style: TextStyle(fontSize: 12, color: AppTheme.onSurfaceVariant),
                     ),
                     Text(
                       currentUser!.phoneNumber,
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      style: TextStyle(fontSize: 12, color: AppTheme.onSurfaceVariant),
                     ),
                   ],
                 ],
@@ -659,15 +1065,15 @@ class AppDrawer extends StatelessWidget {
                 padding: EdgeInsets.zero,
                 children: [
                   ListTile(
-                    leading: Icon(Icons.dashboard, color: Colors.blue[800]),
-                    title: Text('Dashboard'),
+                    leading: Icon(Icons.dashboard, color: AppTheme.primary),
+                    title: Text('Dashboard', style: TextStyle(color: AppTheme.onBackground)),
                     onTap: () {
                       Navigator.pop(context);
                     },
                   ),
                   ListTile(
-                    leading: Icon(Icons.person, color: Colors.blue[800]),
-                    title: Text('My Account'),
+                    leading: Icon(Icons.person, color: AppTheme.primary),
+                    title: Text('My Account', style: TextStyle(color: AppTheme.onBackground)),
                     onTap: () {
                       Navigator.pop(context);
                       Navigator.push(
@@ -678,8 +1084,8 @@ class AppDrawer extends StatelessWidget {
                     },
                   ),
                   ListTile(
-                    leading: Icon(Icons.analytics, color: Colors.blue[800]),
-                    title: Text('Sensor Dashboard'),
+                    leading: Icon(Icons.analytics, color: AppTheme.primary),
+                    title: Text('Sensor Dashboard', style: TextStyle(color: AppTheme.onBackground)),
                     onTap: () {
                       Navigator.pop(context);
                       Navigator.push(
@@ -689,9 +1095,10 @@ class AppDrawer extends StatelessWidget {
                       );
                     },
                   ),
+                  // OMITTED MIDDLE ITEMS TO KEEP PATCH SMALL
                   ListTile(
-                    leading: Icon(Icons.tune, color: Colors.blue[800]),
-                    title: Text('Threshold Settings'),
+                    leading: Icon(Icons.tune, color: AppTheme.primary),
+                    title: Text('Threshold Settings', style: TextStyle(color: AppTheme.onBackground)),
                     onTap: () {
                       Navigator.pop(context);
                       Navigator.push(
@@ -702,8 +1109,8 @@ class AppDrawer extends StatelessWidget {
                     },
                   ),
                   ListTile(
-                    leading: Icon(Icons.tire_repair, color: Colors.blue[800]),
-                    title: Text('Spare Tire Management'),
+                    leading: Icon(Icons.tire_repair, color: AppTheme.primary),
+                    title: Text('Spare Tire Management', style: TextStyle(color: AppTheme.onBackground)),
                     onTap: () {
                       Navigator.pop(context);
                       Navigator.push(
@@ -714,8 +1121,8 @@ class AppDrawer extends StatelessWidget {
                     },
                   ),
                   ListTile(
-                    leading: Icon(Icons.car_repair, color: Colors.blue[800]),
-                    title: Text('Tires In Service'),
+                    leading: Icon(Icons.car_repair, color: AppTheme.primary),
+                    title: Text('Tires In Service', style: TextStyle(color: AppTheme.onBackground)),
                     onTap: () {
                       Navigator.pop(context);
                       Navigator.push(
@@ -726,8 +1133,8 @@ class AppDrawer extends StatelessWidget {
                     },
                   ),
                   ListTile(
-                    leading: Icon(Icons.settings, color: Colors.blue[800]),
-                    title: Text('Settings'),
+                    leading: Icon(Icons.settings, color: AppTheme.primary),
+                    title: Text('Settings', style: TextStyle(color: AppTheme.onBackground)),
                     onTap: () {
                       Navigator.pop(context);
                       Navigator.push(
@@ -737,10 +1144,10 @@ class AppDrawer extends StatelessWidget {
                       );
                     },
                   ),
-                  Divider(),
+                  Divider(color: AppTheme.outlineVariant),
                   ListTile(
-                    leading: Icon(Icons.logout, color: Colors.red),
-                    title: Text('Logout', style: TextStyle(color: Colors.red)),
+                    leading: Icon(Icons.logout, color: AppTheme.error),
+                    title: Text('Logout', style: TextStyle(color: AppTheme.error)),
                     onTap: () async {
                       await UserService.logout();
                       Navigator.pushAndRemoveUntil(
@@ -784,6 +1191,7 @@ class _MyAccountScreenState extends State<MyAccountScreen> {
 
   Future<void> _loadUser() async {
     User? user = await UserService.getUser();
+    if (!mounted) return;
     if (user != null) {
       setState(() {
         _currentUser = user;
@@ -803,6 +1211,8 @@ class _MyAccountScreenState extends State<MyAccountScreen> {
       );
 
       await UserService.saveUser(updatedUser);
+
+      if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -827,13 +1237,13 @@ class _MyAccountScreenState extends State<MyAccountScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('My Account', style: TextStyle(color: Colors.blue[800])),
-        backgroundColor: Colors.white,
+        title: Text('My Account', style: TextStyle(color: AppTheme.primary)),
+        backgroundColor: AppTheme.background,
         elevation: 0,
-        iconTheme: IconThemeData(color: Colors.blue[800]),
+        iconTheme: IconThemeData(color: AppTheme.primary),
       ),
       body: _currentUser == null
-          ? Center(child: CircularProgressIndicator(color: Colors.blue))
+          ? Center(child: CircularProgressIndicator(color: AppTheme.primary))
           : Padding(
               padding: const EdgeInsets.all(24.0),
               child: Form(
@@ -842,11 +1252,10 @@ class _MyAccountScreenState extends State<MyAccountScreen> {
                   children: [
                     CircleAvatar(
                       radius: 50,
-                      backgroundColor: Colors.blue[100],
-                      child:
-                          Icon(Icons.person, size: 50, color: Colors.blue[800]),
+                      backgroundColor: AppTheme.surfaceHigh,
+                      child: Icon(Icons.person, size: 50, color: AppTheme.primary),
                     ),
-                    SizedBox(height: 30),
+                    const SizedBox(height: 30),
                     TextFormField(
                       controller: _nameController,
                       validator: (value) {
@@ -855,19 +1264,12 @@ class _MyAccountScreenState extends State<MyAccountScreen> {
                         }
                         return null;
                       },
-                      decoration: InputDecoration(
+                      decoration: const InputDecoration(
                         labelText: 'Full Name',
-                        prefixIcon: Icon(Icons.person, color: Colors.blue),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.blue),
-                        ),
+                        prefixIcon: Icon(Icons.person),
                       ),
                     ),
-                    SizedBox(height: 16),
+                    const SizedBox(height: 16),
                     TextFormField(
                       controller: _emailController,
                       validator: (value) {
@@ -880,19 +1282,12 @@ class _MyAccountScreenState extends State<MyAccountScreen> {
                         }
                         return null;
                       },
-                      decoration: InputDecoration(
+                      decoration: const InputDecoration(
                         labelText: 'Email',
-                        prefixIcon: Icon(Icons.email, color: Colors.blue),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.blue),
-                        ),
+                        prefixIcon: Icon(Icons.email),
                       ),
                     ),
-                    SizedBox(height: 16),
+                    const SizedBox(height: 16),
                     TextFormField(
                       controller: _phoneController,
                       validator: (value) {
@@ -901,36 +1296,65 @@ class _MyAccountScreenState extends State<MyAccountScreen> {
                         }
                         return null;
                       },
-                      decoration: InputDecoration(
+                      decoration: const InputDecoration(
                         labelText: 'Phone Number',
-                        prefixIcon: Icon(Icons.phone, color: Colors.blue),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.blue),
-                        ),
+                        prefixIcon: Icon(Icons.phone),
                       ),
                     ),
-                    SizedBox(height: 32),
+                    const SizedBox(height: 32),
                     ElevatedButton(
                       onPressed: _updateUser,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue[800],
-                        foregroundColor: Colors.white,
-                        padding:
-                            EdgeInsets.symmetric(vertical: 16, horizontal: 32),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
+                        minimumSize: const Size(double.infinity, 50),
                       ),
-                      child: Text('Update Profile'),
+                      child: const Text('Update Profile'),
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: _showResetSensorDataDialog,
+                      style: ElevatedButton.styleFrom(
+                        minimumSize: const Size(double.infinity, 50),
+                        backgroundColor: Colors.red[700],
+                      ),
+                      child: const Text('Reset Sensor Data'),
                     ),
                   ],
                 ),
               ),
             ),
+    );
+  }
+
+  void _showResetSensorDataDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Reset Sensor Data?'),
+        content: const Text(
+          'This will clear all bound sensors and sensor history. This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await SensorIdStore.clearAllData();
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Sensor data cleared successfully'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              }
+            },
+            child: const Text('Reset', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -941,41 +1365,49 @@ class SettingsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Settings', style: TextStyle(color: Colors.blue[800])),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        iconTheme: IconThemeData(color: Colors.blue[800]),
+        title: const Text('Settings'),
       ),
       body: ListView(
         children: [
           ListTile(
-            leading: Icon(Icons.notifications, color: Colors.blue[800]),
-            title: Text('Notifications'),
+            leading: Icon(Icons.light_mode, color: AppTheme.primary),
+            title: Text('Light Mode', style: TextStyle(color: AppTheme.onBackground)),
             trailing: Switch(
-              value: true,
-              onChanged: (value) {},
-              activeColor: Colors.blue[800],
+              value: MyApp.of(context)?.themeMode == ThemeMode.light,
+              onChanged: (value) {
+                MyApp.of(context)?.updateThemeMode(value ? ThemeMode.light : ThemeMode.dark);
+              },
+              activeColor: AppTheme.primary,
             ),
           ),
           ListTile(
-            leading: Icon(Icons.bluetooth, color: Colors.blue[800]),
-            title: Text('Bluetooth'),
-            trailing: Icon(Icons.arrow_forward_ios, color: Colors.blue[800]),
+            leading: Icon(Icons.notifications, color: AppTheme.primary),
+            title: Text('Notifications', style: TextStyle(color: AppTheme.onBackground)),
+            trailing: Switch(
+              value: true,
+              onChanged: (value) {},
+              activeColor: AppTheme.primary,
+            ),
+          ),
+          ListTile(
+            leading: Icon(Icons.bluetooth, color: AppTheme.primary),
+            title: Text('Bluetooth', style: TextStyle(color: AppTheme.onBackground)),
+            trailing: Icon(Icons.arrow_forward_ios, color: AppTheme.primary),
             onTap: () {
               // Add bluetooth settings navigation
             },
           ),
           ListTile(
-            leading: Icon(Icons.warning, color: Colors.blue[800]),
-            title: Text('Alert Settings'),
-            trailing: Icon(Icons.arrow_forward_ios, color: Colors.blue[800]),
+            leading: Icon(Icons.warning, color: AppTheme.primary),
+            title: Text('Alert Settings', style: TextStyle(color: AppTheme.onBackground)),
+            trailing: Icon(Icons.arrow_forward_ios, color: AppTheme.primary),
             onTap: () {
               // Navigate to alert settings
             },
           ),
           ListTile(
-            leading: Icon(Icons.info, color: Colors.blue[800]),
-            title: Text('About'),
+            leading: Icon(Icons.info, color: AppTheme.primary),
+            title: Text('About', style: TextStyle(color: AppTheme.onBackground)),
             trailing: Icon(Icons.arrow_forward_ios, color: Colors.blue[800]),
             onTap: () {
               showDialog(
@@ -989,7 +1421,7 @@ class SettingsScreen extends StatelessWidget {
                       Text('TPMS App v1.0'),
                       Text('Tire Pressure Monitoring System'),
                       SizedBox(height: 10),
-                      Text('© Wheels India Limited'),
+                      Text('Â© Wheels India Limited'),
                       Text('All rights reserved'),
                     ],
                   ),
@@ -1046,9 +1478,7 @@ class _SpareTireScreenState extends State<SpareTireScreen> {
         _sensorStatus = SensorStatus(
           connected: true,
           statusColor: Colors.blue,
-          warningIcons: [
-            Icon(Icons.bluetooth_connected, color: Colors.white, size: 12)
-          ],
+          warningIcons: [Icons.bluetooth_connected],
           message: 'Connected - Waiting for data',
         );
       }
@@ -1127,7 +1557,7 @@ class _SpareTireScreenState extends State<SpareTireScreen> {
                     decoration: BoxDecoration(
                       color: Colors.blue[50],
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                      border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
                     ),
                     child: Column(
                       children: [
@@ -1151,7 +1581,7 @@ class _SpareTireScreenState extends State<SpareTireScreen> {
                               BoxShadow(
                                 color:
                                     (_sensorStatus?.statusColor ?? Colors.grey)
-                                        .withOpacity(0.3),
+                                        .withValues(alpha: 0.3),
                                 blurRadius: 10,
                                 spreadRadius: 2,
                               ),
@@ -1191,7 +1621,7 @@ class _SpareTireScreenState extends State<SpareTireScreen> {
                               SizedBox(width: 16),
                               _buildDataCard(
                                 'Temperature',
-                                '${_sensorData!.temperature}°C',
+                                '${_sensorData!.temperature}Â°C',
                                 Icons.thermostat,
                                 Colors.orange[700]!,
                               ),
@@ -1322,7 +1752,7 @@ class _SpareTireScreenState extends State<SpareTireScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('• ', style: TextStyle(fontSize: 14, color: Colors.blue[800])),
+          Text('â€¢ ', style: TextStyle(fontSize: 14, color: Colors.blue[800])),
           Expanded(
             child: Text(
               text,
@@ -1354,6 +1784,8 @@ class _TireServiceScreenState extends State<TireServiceScreen> {
   Future<void> _loadServiceRecords() async {
     // Simulate loading service records
     await Future.delayed(Duration(seconds: 1));
+
+    if (!mounted) return;
 
     // Dummy data for now
     setState(() {
@@ -1675,6 +2107,7 @@ class _TireServiceFormState extends State<TireServiceForm> {
       firstDate: DateTime(2000),
       lastDate: DateTime.now(),
     );
+    if (!mounted) return;
     if (picked != null && picked != _installDate) {
       setState(() {
         _installDate = picked;
@@ -1689,6 +2122,7 @@ class _TireServiceFormState extends State<TireServiceForm> {
       firstDate: DateTime.now(),
       lastDate: DateTime(2100),
     );
+    if (!mounted) return;
     if (picked != null && picked != _nextServiceDate) {
       setState(() {
         _nextServiceDate = picked;
@@ -1998,6 +2432,7 @@ class VehicleScreen extends StatefulWidget {
 class _VehicleScreenState extends State<VehicleScreen> {
   Map<String, SensorStatus> _sensorStatuses = {};
   Map<String, SensorData> _latestSensorData = {};
+  bool _isInitialized = false;
 
   @override
   void initState() {
@@ -2006,48 +2441,237 @@ class _VehicleScreenState extends State<VehicleScreen> {
   }
 
   Future<void> _loadSensorStatuses() async {
-    final boundSensors = await SensorIdStore.getBoundSensors();
-    Map<String, SensorStatus> statuses = {};
-    Map<String, SensorData> sensorData = {};
+    try {
+      final boundSensors = await SensorIdStore.getBoundSensors();
+      
+      // Debug: Log current bound sensors
+      print('[DEBUG] Vehicle: ${widget.vehicleType}, Bound sensors count: ${boundSensors.length}');
+      for (var sensor in boundSensors) {
+        print('[DEBUG]   - ${sensor.wheelLabel}: ${sensor.sensorId}');
+      }
+      
+      Map<String, SensorStatus> statuses = {};
+      Map<String, SensorData> sensorData = {};
 
-    // Initialize all sensors as not connected
-    List<String> sensorLabels =
-        _getSensorLabelsForVehicleType(widget.vehicleType);
-    for (String label in sensorLabels) {
-      statuses[label] = SensorStatus.notConnected();
-    }
+      // Initialize all sensors as not connected
+      List<String> sensorLabels =
+          _getSensorLabelsForVehicleType(widget.vehicleType);
+      print('[DEBUG] Expected sensor labels: $sensorLabels');
+      
+      for (String label in sensorLabels) {
+        statuses[label] = SensorStatus.notConnected();
+      }
 
-    // Update status for bound sensors
-    for (BoundSensor boundSensor in boundSensors) {
-      if (sensorLabels.contains(boundSensor.wheelLabel)) {
-        final latestData =
-            await SensorIdStore.getLatestSensorData(boundSensor.wheelLabel);
-        if (latestData != null) {
-          sensorData[boundSensor.wheelLabel] = latestData;
-          final statusInfo = await SensorStatusController.getStatusInfo(
-              latestData, boundSensor.thresholds);
-          statuses[boundSensor.wheelLabel] =
-              SensorStatus.fromStatusInfo(statusInfo);
-        } else {
-          // Sensor is bound but no data yet - show as connected but waiting for data
-          statuses[boundSensor.wheelLabel] = SensorStatus(
-            connected: true,
-            statusColor: Colors.blue,
-            warningIcons: [
-              Icon(Icons.bluetooth_connected, color: Colors.white, size: 12)
-            ],
-            message: 'Connected - Waiting for data',
-          );
+      // Only update status for sensors that are actually bound
+      for (BoundSensor boundSensor in boundSensors) {
+        if (sensorLabels.contains(boundSensor.wheelLabel)) {
+          final latestData =
+              await SensorIdStore.getLatestSensorData(boundSensor.wheelLabel);
+          if (latestData != null) {
+            sensorData[boundSensor.wheelLabel] = latestData;
+            final statusInfo = await SensorStatusController.getStatusInfo(
+                latestData, boundSensor.thresholds);
+            statuses[boundSensor.wheelLabel] =
+                SensorStatus.fromStatusInfo(statusInfo);
+            print('[DEBUG] Updated ${boundSensor.wheelLabel} with data');
+          } else {
+            // Sensor is bound but no data yet - show as connected but waiting for data
+            statuses[boundSensor.wheelLabel] = SensorStatus(
+              connected: true,
+              statusColor: Colors.blue,
+              warningIcons: [Icons.bluetooth_connected],
+              message: 'Connected - Waiting for data',
+            );
+            print('[DEBUG] ${boundSensor.wheelLabel} bound but no data yet');
+          }
         }
       }
+
+      // Add mounted check before setState
+      if (mounted) {
+        setState(() {
+          _sensorStatuses = statuses;
+          _latestSensorData = sensorData;
+          _isInitialized = true;
+        });
+      }
+    } catch (e) {
+      print('Error loading sensor statuses: $e');
+      if (mounted) {
+        setState(() {
+          _isInitialized = true;
+        });
+      }
+    }
+  }
+
+  Future<void> _manualSwapWithSpareFromVehicle() async {
+    final sensors = await SensorIdStore.getBoundSensors();
+    final candidates = sensors
+        .where((s) => s.wheelLabel != 'Spare Tire' && s.wheelLabel != 'In Service')
+        .toList();
+
+    if (candidates.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No eligible wheels to swap with spare.')),
+        );
+      }
+      return;
     }
 
-    // Add mounted check before setState
-    if (mounted) {
-      setState(() {
-        _sensorStatuses = statuses;
-        _latestSensorData = sensorData;
-      });
+    if (!mounted) return;
+    final String? selection = await showModalBottomSheet<String?>(
+      context: context,
+      useRootNavigator: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => Container(
+        decoration: BoxDecoration(
+          color: AppTheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          border: Border(
+            top: BorderSide(color: AppTheme.outlineVariant.withValues(alpha: 0.9)),
+          ),
+        ),
+        padding: EdgeInsets.fromLTRB(
+          20,
+          16,
+          20,
+          20 + MediaQuery.of(sheetContext).padding.bottom,
+        ),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 44,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppTheme.outlineVariant,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Select wheel to swap with spare',
+                style: TextStyle(
+                  color: AppTheme.onBackground,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.2,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Tap the wheel that should receive the spare tire sensor.',
+                style: TextStyle(
+                  color: AppTheme.onSurfaceVariant,
+                  fontSize: 13,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 16),
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(sheetContext).size.height * 0.55,
+                ),
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: candidates.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  itemBuilder: (context, index) {
+                    final sensor = candidates[index];
+                    return Material(
+                      color: AppTheme.surfaceHigh,
+                      borderRadius: BorderRadius.circular(18),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(18),
+                        onTap: () => Navigator.of(sheetContext).pop(sensor.wheelLabel),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 42,
+                                height: 42,
+                                decoration: BoxDecoration(
+                                  color: AppTheme.primary.withValues(alpha: 0.16),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  Icons.tire_repair,
+                                  color: AppTheme.primary,
+                                ),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      sensor.wheelLabel,
+                                      style: TextStyle(
+                                        color: AppTheme.onBackground,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      sensor.sensorId,
+                                      style: TextStyle(
+                                        color: AppTheme.onSurfaceVariant,
+                                        fontSize: 12,
+                                        fontFamily: 'JetBrains Mono',
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Icon(Icons.chevron_right, color: AppTheme.outline),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: () => Navigator.of(sheetContext).pop(),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppTheme.onSurfaceVariant,
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                ),
+                child: const Text('Cancel'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (!mounted) return;
+    if (selection == null) return;
+
+    final success = await SpareTireManager.swapWithSpareTire(selection);
+    if (success) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Spare installed into $selection'), backgroundColor: Colors.green),
+      );
+      await _loadSensorStatuses();
+    } else {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Swap failed. Ensure a spare is registered and try again.'), backgroundColor: Colors.red),
+      );
     }
   }
 
@@ -2107,7 +2731,7 @@ class _VehicleScreenState extends State<VehicleScreen> {
         borderRadius: BorderRadius.circular(6),
         boxShadow: [
           BoxShadow(
-            color: status.statusColor.withOpacity(0.3),
+            color: status.statusColor.withValues(alpha: 0.3),
             blurRadius: 4,
             spreadRadius: 1,
           ),
@@ -2132,7 +2756,7 @@ class _VehicleScreenState extends State<VehicleScreen> {
                   fontWeight: FontWeight.bold,
                 )),
             SizedBox(width: 2),
-            ...status.warningIcons,
+                                        ...status.warningIcons.map((ic) => Icon(ic, color: Colors.white, size: 12)).toList(),
           ],
         ),
       ),
@@ -2150,7 +2774,7 @@ class _VehicleScreenState extends State<VehicleScreen> {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.9),
+        color: Colors.white.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(4),
         border: Border.all(color: Colors.grey[300]!),
       ),
@@ -2166,7 +2790,7 @@ class _VehicleScreenState extends State<VehicleScreen> {
             ),
           ),
           Text(
-            '${sensorData.temperature}°C',
+            '${sensorData.temperature}Â°C',
             style: TextStyle(
               fontSize: 8,
               color: Colors.orange[700],
@@ -2184,22 +2808,25 @@ class _VehicleScreenState extends State<VehicleScreen> {
 
     switch (vehicleType) {
       case 'BIKE':
-        imagePath = 'assets/images/bike.png';
+        // Replace bike.png with your exported Stitch artwork
+        imagePath = 'assets/images/bike_stitch.png';
         imageWidth = 350; // Increased from 300
         imageHeight = 250; // Increased from 200
         break;
       case 'CV':
-        imagePath = 'assets/images/truck.png';
+        // Replace truck.png with your exported Stitch artwork
+        imagePath = 'assets/images/cv_stitch.png';
         imageWidth = 400; // Increased significantly for truck
         imageHeight = 280; // Increased significantly for truck
         break;
       case 'PV/SCV':
-        imagePath = 'assets/images/car.png';
+        // Replace car.png with your exported Stitch artwork
+        imagePath = 'assets/images/pvscv_stitch.png';
         imageWidth = 380; // Increased significantly for car
         imageHeight = 260; // Increased significantly for car
         break;
       default:
-        imagePath = 'assets/images/car.png';
+        imagePath = 'assets/images/pvscv_stitch.png';
         imageWidth = 380;
         imageHeight = 260;
     }
@@ -2208,15 +2835,16 @@ class _VehicleScreenState extends State<VehicleScreen> {
       width: imageWidth,
       height: imageHeight,
       decoration: BoxDecoration(
-        color: Colors.grey[200],
+        color: Colors.transparent,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[300]!),
+        border: Border.all(color: AppTheme.outlineVariant),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
-        child: Image.asset(
-          imagePath,
+        child: RecolorAssetBackground(
+          imagePath: imagePath,
           fit: BoxFit.contain,
+          backgroundColor: Colors.transparent,
           errorBuilder: (context, error, stackTrace) {
             // Fallback to icon if image fails to load
             IconData iconData;
@@ -2238,8 +2866,8 @@ class _VehicleScreenState extends State<VehicleScreen> {
               children: [
                 Icon(
                   iconData,
-                  size: 100, // Increased icon size too
-                  color: Colors.grey[400],
+                  size: 100,
+                  color: AppTheme.outline,
                 ),
                 SizedBox(height: 8),
                 Text(
@@ -2273,9 +2901,7 @@ class _VehicleScreenState extends State<VehicleScreen> {
           SensorStatus(
             connected: true,
             statusColor: Colors.blue,
-            warningIcons: [
-              Icon(Icons.tire_repair, color: Colors.white, size: 12)
-            ],
+            warningIcons: [Icons.tire_repair],
             message: 'Spare Tire',
           );
     }
@@ -2286,14 +2912,14 @@ class _VehicleScreenState extends State<VehicleScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        leading: BackButton(color: Colors.blue[800]),
-        backgroundColor: Colors.white,
+        leading: BackButton(color: AppTheme.onBackground),
+        backgroundColor: AppTheme.surface,
         elevation: 0,
-        title: Text(widget.title, style: TextStyle(color: Colors.blue[800])),
+        title: Text(widget.title, style: TextStyle(color: AppTheme.onBackground)),
         centerTitle: true,
         actions: [
           IconButton(
-            icon: Icon(Icons.refresh, color: Colors.blue[800]),
+            icon: Icon(Icons.refresh, color: AppTheme.onBackground),
             onPressed: _loadSensorStatuses,
           ),
         ],
@@ -2356,7 +2982,7 @@ class _VehicleScreenState extends State<VehicleScreen> {
                                     borderRadius: BorderRadius.circular(6),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: Colors.blue.withOpacity(0.3),
+                                        color: Colors.blue.withValues(alpha: 0.3),
                                         blurRadius: 4,
                                         spreadRadius: 1,
                                       ),
@@ -2389,7 +3015,7 @@ class _VehicleScreenState extends State<VehicleScreen> {
                                               fontWeight: FontWeight.bold,
                                             )),
                                         SizedBox(width: 2),
-                                        ...status.warningIcons,
+                                        ...status.warningIcons.map((ic) => Icon(ic, color: Colors.white, size: 12)).toList(),
                                       ],
                                     ),
                                   ),
@@ -2491,7 +3117,7 @@ class _VehicleScreenState extends State<VehicleScreen> {
                                     borderRadius: BorderRadius.circular(6),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: Colors.blue.withOpacity(0.3),
+                                        color: Colors.blue.withValues(alpha: 0.3),
                                         blurRadius: 4,
                                         spreadRadius: 1,
                                       ),
@@ -2524,7 +3150,7 @@ class _VehicleScreenState extends State<VehicleScreen> {
                                               fontWeight: FontWeight.bold,
                                             )),
                                         SizedBox(width: 2),
-                                        ...status.warningIcons,
+                                        ...status.warningIcons.map((ic) => Icon(ic, color: Colors.white, size: 12)).toList(),
                                       ],
                                     ),
                                   ),
@@ -2604,7 +3230,7 @@ class _VehicleScreenState extends State<VehicleScreen> {
                                     borderRadius: BorderRadius.circular(6),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: Colors.blue.withOpacity(0.3),
+                                        color: Colors.blue.withValues(alpha: 0.3),
                                         blurRadius: 4,
                                         spreadRadius: 1,
                                       ),
@@ -2637,7 +3263,7 @@ class _VehicleScreenState extends State<VehicleScreen> {
                                               fontWeight: FontWeight.bold,
                                             )),
                                         SizedBox(width: 2),
-                                        ...status.warningIcons,
+                                        ...status.warningIcons.map((ic) => Icon(ic, color: Colors.white, size: 12)).toList(),
                                       ],
                                     ),
                                   ),
@@ -2653,6 +3279,11 @@ class _VehicleScreenState extends State<VehicleScreen> {
                 SizedBox(height: 30), // Increased spacing
                 // Status legend
                 Card(
+                  color: AppTheme.surface,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(color: AppTheme.outlineVariant),
+                  ),
                   child: Padding(
                     padding: EdgeInsets.all(12),
                     child: Column(
@@ -2661,7 +3292,10 @@ class _VehicleScreenState extends State<VehicleScreen> {
                         Text(
                           'Sensor Status Legend:',
                           style: TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 14),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                            color: AppTheme.onBackground,
+                          ),
                         ),
                         SizedBox(height: 8),
                         Wrap(
@@ -2679,6 +3313,19 @@ class _VehicleScreenState extends State<VehicleScreen> {
                             _buildLegendItem(Colors.black, 'Not Connected',
                                 Icons.bluetooth_disabled),
                           ],
+                        ),
+                        const SizedBox(height: 12),
+                        ElevatedButton.icon(
+                          onPressed: _manualSwapWithSpareFromVehicle,
+                          icon: const Icon(Icons.swap_horiz, size: 22),
+                          label: const Text('Swap with Spare'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue[800],
+                            foregroundColor: Colors.white,
+                            minimumSize: const Size(200, 48),
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                            textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                          ),
                         ),
                       ],
                     ),
@@ -2712,9 +3359,10 @@ class _VehicleScreenState extends State<VehicleScreen> {
         SizedBox(width: 6),
         Text(
           label,
-          style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+          style: TextStyle(fontSize: 12, color: AppTheme.onBackground),
         ),
       ],
     );
   }
 }
+

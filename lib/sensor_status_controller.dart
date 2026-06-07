@@ -1,5 +1,6 @@
-import 'dart:convert';
+﻿// removed unused import
 import 'package:flutter/material.dart';
+import 'app_theme.dart';
 import 'package:collection/collection.dart';
 import 'sensor_decoder.dart';
 import 'sensor_id_store.dart';
@@ -36,7 +37,7 @@ class SensorStatusController {
     if (data == null) {
       return SensorStatusInfo(
         status: SensorStatusType.notConnected,
-        color: Colors.black,
+        color: AppTheme.outline,
         icon: Icons.bluetooth_disabled,
         message: 'Not Connected',
         warnings: ['Sensor not detected or lost signal'],
@@ -54,7 +55,7 @@ class SensorStatusController {
 
     List<String> warnings = [];
     SensorStatusType status = SensorStatusType.normal;
-    Color color = Colors.green;
+    Color color = AppTheme.primary; // positiveColor
     IconData icon = Icons.check_circle;
 
     // Convert pressure from kPa to PSI for threshold comparison
@@ -64,25 +65,25 @@ class SensorStatusController {
     if (pressurePsi < pressureMin) {
       warnings.add('Pressure below minimum: ${pressurePsi.toStringAsFixed(1)} PSI (Min: ${pressureMin.toStringAsFixed(1)} PSI)');
       status = SensorStatusType.pressureLow;
-      color = Colors.red;
+      color = AppTheme.error; // errorColor
       icon = Icons.warning;
     } else if (pressurePsi > pressureMax) {
       warnings.add('Pressure above maximum: ${pressurePsi.toStringAsFixed(1)} PSI (Max: ${pressureMax.toStringAsFixed(1)} PSI)');
       status = SensorStatusType.pressureHigh;
-      color = Colors.red;
+      color = AppTheme.error; // errorColor
       icon = Icons.warning;
     }
 
     // Check temperature threshold
     if (data.temperature > temperatureMax) {
-      warnings.add('Temperature above safe level: ${data.temperature}°C (Max: ${temperatureMax.toStringAsFixed(1)}°C)');
+      warnings.add('Temperature above safe level: ${data.temperature}Â°C (Max: ${temperatureMax.toStringAsFixed(1)}Â°C)');
       if (status == SensorStatusType.normal) {
         status = SensorStatusType.temperatureHigh;
-        color = Colors.orange;
+        color = Color(0xFFFFD97D); // warningColor
         icon = Icons.thermostat;
       } else {
         status = SensorStatusType.multipleWarnings;
-        color = Colors.red;
+        color = AppTheme.error; // errorColor
         icon = Icons.error;
       }
     }
@@ -92,11 +93,11 @@ class SensorStatusController {
       warnings.add('Battery voltage low: ${data.batteryVoltage.toStringAsFixed(2)}V (Min: ${batteryMinVoltage}V)');
       if (status == SensorStatusType.normal) {
         status = SensorStatusType.batteryLow;
-        color = Colors.amber;
+        color = Color(0xFFFFD97D); // warningColor
         icon = Icons.battery_alert;
       } else {
         status = SensorStatusType.multipleWarnings;
-        color = Colors.red;
+        color = AppTheme.error; // errorColor
         icon = Icons.error;
       }
     }
@@ -107,11 +108,11 @@ class SensorStatusController {
       warnings.add('Battery percentage low: ${batteryPercentage}% (Min: ${batteryMinPercentage}%)');
       if (status == SensorStatusType.normal) {
         status = SensorStatusType.batteryLow;
-        color = Colors.amber;
+        color = Color(0xFFFFD97D); // warningColor
         icon = Icons.battery_alert;
       } else {
         status = SensorStatusType.multipleWarnings;
-        color = Colors.red;
+        color = AppTheme.error; // errorColor
         icon = Icons.error;
       }
     }
@@ -158,7 +159,7 @@ class SensorStatusController {
         color: statusInfo.color,
         boxShadow: [
           BoxShadow(
-            color: statusInfo.color.withOpacity(0.3),
+            color: statusInfo.color.withValues(alpha: 0.3),
             blurRadius: 4,
             spreadRadius: 1,
           ),
@@ -166,7 +167,7 @@ class SensorStatusController {
       ),
       child: Icon(
         statusInfo.icon,
-        color: Colors.white,
+        color: AppTheme.surface,
         size: size * 0.6,
       ),
     );
@@ -180,31 +181,31 @@ class SensorStatusController {
     );
   }
 
-  static List<Widget> buildWarningIcons(SensorStatusInfo statusInfo) {
-    List<Widget> icons = [];
-    
+  static List<IconData> buildWarningIcons(SensorStatusInfo statusInfo) {
+    List<IconData> icons = [];
+
     switch (statusInfo.status) {
       case SensorStatusType.notConnected:
-        icons.add(Icon(Icons.bluetooth_disabled, color: Colors.white, size: 12));
+        icons.add(Icons.bluetooth_disabled);
         break;
       case SensorStatusType.normal:
-        icons.add(Icon(Icons.check_circle, color: Colors.white, size: 12));
+        icons.add(Icons.check_circle);
         break;
       case SensorStatusType.pressureLow:
       case SensorStatusType.pressureHigh:
-        icons.add(Icon(Icons.warning, color: Colors.white, size: 12));
+        icons.add(Icons.warning);
         break;
       case SensorStatusType.temperatureHigh:
-        icons.add(Icon(Icons.thermostat, color: Colors.white, size: 12));
+        icons.add(Icons.thermostat);
         break;
       case SensorStatusType.batteryLow:
-        icons.add(Icon(Icons.battery_alert, color: Colors.white, size: 12));
+        icons.add(Icons.battery_alert);
         break;
       case SensorStatusType.multipleWarnings:
-        icons.add(Icon(Icons.error, color: Colors.white, size: 12));
+        icons.add(Icons.error);
         break;
     }
-    
+
     return icons;
   }
 
@@ -218,9 +219,9 @@ class SensorStatusController {
     final globalThresholds = await ThresholdManager.getSettings();
     
     if (statusInfo.warnings.isEmpty) {
-      return 'Sensor Status: Normal ✅\n'
+      return 'Sensor Status: Normal âœ…\n'
              'Pressure: ${data.pressurePsi.toStringAsFixed(1)} PSI (${globalThresholds.pressureMin}-${globalThresholds.pressureMax})\n'
-             'Temperature: ${data.temperature}°C (Max: ${globalThresholds.temperatureMax})\n'
+             'Temperature: ${data.temperature}Â°C (Max: ${globalThresholds.temperatureMax})\n'
              'Battery: ${((data.battery / 255.0) * 100).round()}% (${data.batteryVoltage.toStringAsFixed(2)}V)\n'
              'Battery Thresholds: Min ${globalThresholds.batteryMinPercentage}% (${globalThresholds.batteryMinVoltage}V)';
     } else {
@@ -228,29 +229,29 @@ class SensorStatusController {
       switch (statusInfo.status) {
         case SensorStatusType.pressureLow:
         case SensorStatusType.pressureHigh:
-          statusEmoji = '🔴';
+          statusEmoji = 'ðŸ”´';
           break;
         case SensorStatusType.temperatureHigh:
-          statusEmoji = '🌡️';
+          statusEmoji = 'ðŸŒ¡ï¸';
           break;
         case SensorStatusType.batteryLow:
-          statusEmoji = '🟠';
+          statusEmoji = 'ðŸŸ ';
           break;
         case SensorStatusType.notConnected:
-          statusEmoji = '⚫';
+          statusEmoji = 'âš«';
           break;
         case SensorStatusType.multipleWarnings:
-          statusEmoji = '🚨';
+          statusEmoji = 'ðŸš¨';
           break;
         default:
-          statusEmoji = '⚠️';
+          statusEmoji = 'âš ï¸';
       }
       
       return 'Sensor Status: ${statusInfo.message} $statusEmoji\n'
-             'Issues:\n${statusInfo.warnings.map((w) => '• $w').join('\n')}\n\n'
+             'Issues:\n${statusInfo.warnings.map((w) => 'â€¢ $w').join('\n')}\n\n'
              'Current Readings:\n'
              'Pressure: ${data.pressurePsi.toStringAsFixed(1)} PSI\n'
-             'Temperature: ${data.temperature}°C\n'
+             'Temperature: ${data.temperature}Â°C\n'
              'Battery: ${((data.battery / 255.0) * 100).round()}% (${data.batteryVoltage.toStringAsFixed(2)}V)';
     }
   }
@@ -297,8 +298,6 @@ class SensorStatusController {
         return Colors.amber;
       case SensorStatusType.notConnected:
         return Colors.black;
-      default:
-        return Colors.grey;
     }
   }
 
@@ -318,8 +317,6 @@ class SensorStatusController {
         return Icons.bluetooth_disabled;
       case SensorStatusType.multipleWarnings:
         return Icons.error;
-      default:
-        return Icons.help;
     }
   }
 
@@ -340,8 +337,8 @@ class SensorStatusController {
         return 'Not Connected';
       case SensorStatusType.multipleWarnings:
         return 'Multiple Issues';
-      default:
-        return 'Unknown';
     }
   }
 }
+
+

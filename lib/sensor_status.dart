@@ -1,11 +1,11 @@
-import 'dart:convert';
+// removed unused import
 import 'package:flutter/material.dart';
 import 'sensor_status_controller.dart';
 
 class SensorStatus {
   final bool connected;
   final Color statusColor;
-  final List<Widget> warningIcons;
+  final List<IconData> warningIcons;
   final String message;
   final SensorStatusInfo? statusInfo;
 
@@ -20,8 +20,8 @@ class SensorStatus {
   factory SensorStatus.notConnected() {
     return SensorStatus(
       connected: false,
-      statusColor: Colors.black, // Changed from grey to black
-      warningIcons: [Icon(Icons.bluetooth_disabled, color: Colors.white, size: 12)],
+      statusColor: const Color(0xFF8C909F), // Changed to mute grey
+      warningIcons: [Icons.bluetooth_disabled],
       message: 'Not Connected',
     );
   }
@@ -29,8 +29,8 @@ class SensorStatus {
   factory SensorStatus.normal() {
     return SensorStatus(
       connected: true,
-      statusColor: Colors.green,
-      warningIcons: [Icon(Icons.check_circle, color: Colors.white, size: 12)],
+      statusColor: const Color(0xFFADC6FF), // Blue accent instead of green
+      warningIcons: [Icons.check_circle],
       message: 'Normal',
     );
   }
@@ -38,8 +38,8 @@ class SensorStatus {
   factory SensorStatus.lowPressure() {
     return SensorStatus(
       connected: true,
-      statusColor: Colors.red,
-      warningIcons: [Icon(Icons.warning, color: Colors.white, size: 12)],
+      statusColor: const Color(0xFFFFB4AB),
+      warningIcons: [Icons.warning],
       message: 'Low Pressure',
     );
   }
@@ -47,8 +47,8 @@ class SensorStatus {
   factory SensorStatus.highPressure() {
     return SensorStatus(
       connected: true,
-      statusColor: Colors.red,
-      warningIcons: [Icon(Icons.warning, color: Colors.white, size: 12)],
+      statusColor: const Color(0xFFFFB4AB),
+      warningIcons: [Icons.warning],
       message: 'High Pressure',
     );
   }
@@ -56,8 +56,8 @@ class SensorStatus {
   factory SensorStatus.lowBattery() {
     return SensorStatus(
       connected: true,
-      statusColor: Colors.amber,
-      warningIcons: [Icon(Icons.battery_alert, color: Colors.white, size: 12)],
+      statusColor: const Color(0xFFFFD97D),
+      warningIcons: [Icons.battery_alert],
       message: 'Low Battery',
     );
   }
@@ -65,16 +65,16 @@ class SensorStatus {
   factory SensorStatus.highTemperature() {
     return SensorStatus(
       connected: true,
-      statusColor: Colors.orange,
-      warningIcons: [Icon(Icons.thermostat, color: Colors.white, size: 12)],
+      statusColor: const Color(0xFFFFD97D),
+      warningIcons: [Icons.thermostat],
       message: 'High Temperature',
     );
   }
 
   factory SensorStatus.fromStatusInfo(SensorStatusInfo statusInfo) {
-    List<Widget> icons = SensorStatusController.buildWarningIcons(statusInfo);
+    List<IconData> icons = SensorStatusController.buildWarningIcons(statusInfo);
     if (icons.isEmpty) {
-      icons = [Icon(statusInfo.icon, color: Colors.white, size: 12)];
+      icons = [statusInfo.icon];
     }
 
     return SensorStatus(

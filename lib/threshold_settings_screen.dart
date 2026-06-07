@@ -1,8 +1,9 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'app_theme.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
+// (single import above)
 
 class ThresholdSettings {
   final double pressureMin;
@@ -100,6 +101,8 @@ class _ThresholdSettingsScreenState extends State<ThresholdSettingsScreen> {
       } else {
         settings = ThresholdSettings.defaultValues();
       }
+
+      if (!mounted) return;
       
       setState(() {
         _currentSettings = settings;
@@ -110,6 +113,7 @@ class _ThresholdSettingsScreenState extends State<ThresholdSettingsScreen> {
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _isLoading = false;
       });
@@ -132,14 +136,16 @@ class _ThresholdSettingsScreenState extends State<ThresholdSettingsScreen> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('threshold_settings', jsonEncode(settings.toJson()));
 
+      if (!mounted) return;
+
       setState(() {
         _currentSettings = settings;
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Settings saved successfully!'),
-          backgroundColor: Colors.green,
+          content: Text('Settings saved successfully!', style: TextStyle(color: AppTheme.onBackground)),
+          backgroundColor: AppTheme.surfaceHigh,
           duration: Duration(seconds: 2),
         ),
       );
@@ -159,15 +165,18 @@ class _ThresholdSettingsScreenState extends State<ThresholdSettingsScreen> {
   }
 
   void _showErrorDialog(String message) {
+    if (!mounted) return;
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Error'),
-        content: Text(message),
+        backgroundColor: AppTheme.surface,
+        title: Text('Error', style: TextStyle(color: AppTheme.error)),
+        content: Text(message, style: TextStyle(color: AppTheme.onSurfaceVariant)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('OK'),
+            child: Text('OK', style: TextStyle(color: AppTheme.primary)),
           ),
         ],
       ),
@@ -214,7 +223,7 @@ class _ThresholdSettingsScreenState extends State<ThresholdSettingsScreen> {
     }
     
     if (temperature < 50 || temperature > 120) {
-      return 'Temperature must be between 50-120°C';
+      return 'Temperature must be between 50-120Â°C';
     }
     
     return null;
@@ -241,26 +250,28 @@ class _ThresholdSettingsScreenState extends State<ThresholdSettingsScreen> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return Scaffold(
+        backgroundColor: AppTheme.background,
         appBar: AppBar(
           title: Text('Threshold Settings'),
-          backgroundColor: Colors.white,
-          foregroundColor: Colors.blue[800],
+          backgroundColor: AppTheme.background,
+          foregroundColor: AppTheme.primary,
           elevation: 0,
         ),
-        body: Center(child: CircularProgressIndicator()),
+        body: Center(child: CircularProgressIndicator(color: AppTheme.primary)),
       );
     }
 
     return Scaffold(
+      backgroundColor: AppTheme.background,
       appBar: AppBar(
         title: Text('Threshold Settings'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.blue[800],
+        backgroundColor: AppTheme.background,
+        foregroundColor: AppTheme.primary,
         elevation: 0,
         actions: [
           IconButton(
             onPressed: _resetToDefaults,
-            icon: Icon(Icons.refresh, color: Colors.blue[800]),
+            icon: Icon(Icons.refresh, color: AppTheme.primary),
             tooltip: 'Reset to Defaults',
           ),
         ],
@@ -273,43 +284,46 @@ class _ThresholdSettingsScreenState extends State<ThresholdSettingsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Header Card
-              Card(
-                color: Colors.blue[50],
-                child: Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Row(
-                    children: [
-                      Icon(Icons.tune, color: Colors.blue[800], size: 32),
-                      SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Global Threshold Settings',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.blue[800],
-                              ),
+              Container(
+                width: double.infinity,
+                padding: EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppTheme.surface,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppTheme.outlineVariant),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.tune, color: AppTheme.primary, size: 32),
+                    SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Global Threshold Settings',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.onBackground,
                             ),
-                            SizedBox(height: 4),
-                            Text(
-                              'Configure warning thresholds for all sensors',
-                              style: TextStyle(color: Colors.blue[600]),
-                            ),
-                          ],
-                        ),
+                          ),
+                          SizedBox(height: 4),
+                          Text(
+                            'Configure warning thresholds for all sensors',
+                            style: TextStyle(color: AppTheme.primary.withValues(alpha: 0.8)),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
               
               SizedBox(height: 24),
               
               // Pressure Settings
-              _buildSectionHeader('Pressure Thresholds', Icons.speed, Colors.blue),
+              _buildSectionHeader('Pressure Thresholds', Icons.speed, AppTheme.primary),
               SizedBox(height: 12),
               Row(
                 children: [
@@ -319,7 +333,7 @@ class _ThresholdSettingsScreenState extends State<ThresholdSettingsScreen> {
                       label: 'Minimum Pressure',
                       hint: 'PSI',
                       icon: Icons.arrow_downward,
-                      color: Colors.red,
+                      color: AppTheme.error,
                       validator: (value) => _validatePressure(value, true),
                     ),
                   ),
@@ -330,7 +344,7 @@ class _ThresholdSettingsScreenState extends State<ThresholdSettingsScreen> {
                       label: 'Maximum Pressure',
                       hint: 'PSI',
                       icon: Icons.arrow_upward,
-                      color: Colors.red,
+                      color: AppTheme.error,
                       validator: (value) => _validatePressure(value, false),
                     ),
                   ),
@@ -340,14 +354,14 @@ class _ThresholdSettingsScreenState extends State<ThresholdSettingsScreen> {
               SizedBox(height: 24),
               
               // Temperature Settings
-              _buildSectionHeader('Temperature Threshold', Icons.thermostat, Colors.orange),
+              _buildSectionHeader('Temperature Threshold', Icons.thermostat, AppTheme.error),
               SizedBox(height: 12),
               _buildInputField(
                 controller: _temperatureMaxController,
                 label: 'Maximum Temperature',
-                hint: '°C',
+                hint: 'Â°C',
                 icon: Icons.thermostat,
-                color: Colors.orange,
+                color: AppTheme.error,
                 validator: _validateTemperature,
                 helperText: 'Alert when temperature exceeds this value',
               ),
@@ -355,14 +369,14 @@ class _ThresholdSettingsScreenState extends State<ThresholdSettingsScreen> {
               SizedBox(height: 24),
               
               // Battery Settings
-              _buildSectionHeader('Battery Threshold', Icons.battery_alert, Colors.green),
+              _buildSectionHeader('Battery Threshold', Icons.battery_alert, AppTheme.primary),
               SizedBox(height: 12),
               _buildInputField(
                 controller: _batteryMinPercentageController,
                 label: 'Minimum Battery Level',
                 hint: '%',
                 icon: Icons.battery_alert,
-                color: Colors.amber,
+                color: AppTheme.error,
                 validator: _validateBatteryPercentage,
                 helperText: 'Alert when battery falls below this level',
               ),
@@ -372,19 +386,19 @@ class _ThresholdSettingsScreenState extends State<ThresholdSettingsScreen> {
                 margin: EdgeInsets.only(top: 12),
                 padding: EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.green[50],
+                  color: AppTheme.surfaceHigh,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.green[200]!),
+                  border: Border.all(color: AppTheme.primary),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.info, color: Colors.green[700], size: 20),
+                    Icon(Icons.info, color: AppTheme.primary, size: 20),
                     SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         'Battery voltage threshold is fixed at 2.2V for optimal sensor performance',
                         style: TextStyle(
-                          color: Colors.green[700],
+                          color: AppTheme.primary,
                           fontSize: 13,
                         ),
                       ),
@@ -397,27 +411,30 @@ class _ThresholdSettingsScreenState extends State<ThresholdSettingsScreen> {
               
               // Current Settings Display
               if (_currentSettings != null)
-                Card(
-                  color: Colors.grey[50],
-                  child: Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Current Settings',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.grey[800],
-                          ),
+                Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppTheme.surface,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppTheme.outlineVariant),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Current Settings',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.onBackground,
                         ),
-                        SizedBox(height: 12),
-                        _buildSettingRow('Pressure Range', '${_currentSettings!.pressureMin} - ${_currentSettings!.pressureMax} PSI'),
-                        _buildSettingRow('Max Temperature', '${_currentSettings!.temperatureMax}°C'),
-                        _buildSettingRow('Min Battery', '${_currentSettings!.batteryMinPercentage}% (${_currentSettings!.batteryMinVoltage}V)'),
-                      ],
-                    ),
+                      ),
+                      SizedBox(height: 12),
+                      _buildSettingRow('Pressure Range', '${_currentSettings!.pressureMin} - ${_currentSettings!.pressureMax} PSI'),
+                      _buildSettingRow('Max Temperature', '${_currentSettings!.temperatureMax}Â°C'),
+                      _buildSettingRow('Min Battery', '${_currentSettings!.batteryMinPercentage}% (${_currentSettings!.batteryMinVoltage}V)'),
+                    ],
                   ),
                 ),
               
@@ -427,8 +444,8 @@ class _ThresholdSettingsScreenState extends State<ThresholdSettingsScreen> {
               Container(
                 padding: EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.amber[50],
-                  border: Border.all(color: Colors.amber[200]!),
+                  color: AppTheme.warningContainer.withValues(alpha: 0.5),
+                  border: Border.all(color: AppTheme.warning),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Column(
@@ -436,25 +453,25 @@ class _ThresholdSettingsScreenState extends State<ThresholdSettingsScreen> {
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.warning, color: Colors.amber[800]),
+                        Icon(Icons.warning, color: AppTheme.warning),
                         SizedBox(width: 8),
                         Text(
                           'Important Notes',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            color: Colors.amber[800],
+                            color: AppTheme.warning,
                           ),
                         ),
                       ],
                     ),
                     SizedBox(height: 8),
                     Text(
-                      '• These settings apply to all sensors globally\n'
-                      '• Recommended pressure range: 30-35 PSI for most vehicles\n'
-                      '• Temperature alerts help prevent tire blowouts\n'
-                      '• Battery voltage is fixed at 2.2V for optimal performance\n'
-                      '• Changes take effect immediately for all new readings',
-                      style: TextStyle(color: Colors.amber[700], fontSize: 13),
+                      'â€¢ These settings apply to all sensors globally\n'
+                      'â€¢ Recommended pressure range: 30-35 PSI for most vehicles\n'
+                      'â€¢ Temperature alerts help prevent tire blowouts\n'
+                      'â€¢ Battery voltage is fixed at 2.2V for optimal performance\n'
+                      'â€¢ Changes take effect immediately for all new readings',
+                      style: TextStyle(color: AppTheme.warning, fontSize: 13),
                     ),
                   ],
                 ),
@@ -469,10 +486,10 @@ class _ThresholdSettingsScreenState extends State<ThresholdSettingsScreen> {
                 child: ElevatedButton(
                   onPressed: _saveSettings,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue[800],
-                    foregroundColor: Colors.white,
+                    backgroundColor: AppTheme.primary,
+                    foregroundColor: AppTheme.onBackground,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(50),
                     ),
                   ),
                   child: Text(
@@ -498,7 +515,7 @@ class _ThresholdSettingsScreenState extends State<ThresholdSettingsScreen> {
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
-            color: Colors.grey[800],
+            color: AppTheme.onBackground,
           ),
         ),
       ],
@@ -521,19 +538,29 @@ class _ThresholdSettingsScreenState extends State<ThresholdSettingsScreen> {
       inputFormatters: [
         FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,1}')),
       ],
+      style: TextStyle(color: AppTheme.onBackground, fontFamily: 'JetBrains Mono'),
       decoration: InputDecoration(
         labelText: label,
+        labelStyle: TextStyle(color: AppTheme.outline),
         suffixText: hint,
+        suffixStyle: TextStyle(color: AppTheme.onSurfaceVariant),
         prefixIcon: Icon(icon, color: color),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: AppTheme.outlineVariant),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: AppTheme.outlineVariant),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.blue),
+          borderSide: BorderSide(color: AppTheme.primary),
         ),
+        fillColor: AppTheme.surfaceHigh,
+        filled: true,
         helperText: helperText,
-        helperStyle: TextStyle(fontSize: 12),
+        helperStyle: TextStyle(fontSize: 12, color: AppTheme.outline),
       ),
     );
   }
@@ -546,13 +573,14 @@ class _ThresholdSettingsScreenState extends State<ThresholdSettingsScreen> {
         children: [
           Text(
             label,
-            style: TextStyle(color: Colors.grey[600]),
+            style: TextStyle(color: AppTheme.onSurfaceVariant),
           ),
           Text(
             value,
             style: TextStyle(
               fontWeight: FontWeight.w500,
-              color: Colors.grey[800],
+              color: AppTheme.onBackground,
+              fontFamily: 'JetBrains Mono',
             ),
           ),
         ],
@@ -563,7 +591,7 @@ class _ThresholdSettingsScreenState extends State<ThresholdSettingsScreen> {
 
 // Helper class for threshold management
 class ThresholdManager {
-  static const String _settingsKey = 'threshold_settings';
+  static String _settingsKey = 'threshold_settings';
   
   static Future<ThresholdSettings> getSettings() async {
     try {
@@ -594,3 +622,4 @@ class ThresholdManager {
     await saveSettings(ThresholdSettings.defaultValues());
   }
 }
+

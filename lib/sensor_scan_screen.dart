@@ -1,5 +1,6 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'package:flutter/material.dart';
+import 'app_theme.dart';
 import 'package:flutter_reactive_ble/flutter_reactive_ble.dart';
 import 'sensor_decoder.dart';
 import 'sensor_id_store.dart';
@@ -9,7 +10,7 @@ import 'ble_permissions.dart';
 class SensorScanScreen extends StatefulWidget {
   final String wheelLabel;
 
-  const SensorScanScreen({Key? key, required this.wheelLabel})
+  SensorScanScreen({Key? key, required this.wheelLabel})
       : super(key: key);
 
   @override
@@ -40,21 +41,36 @@ class _SensorScanScreenState extends State<SensorScanScreen> {
 
   Future<void> _requestPermissionsAndScan() async {
     bool hasPermissions = await BlePermissions.requestPermissions(context);
+    if (!mounted) return;
 
     if (hasPermissions) {
       _startScanning();
     }
   }
 
+  Future<BleStatus> _getCurrentBleStatus() async {
+    try {
+      return await _ble.statusStream
+          .firstWhere((status) => status != BleStatus.unknown)
+          .timeout(Duration(seconds: 5), onTimeout: () => BleStatus.unknown);
+    } catch (e) {
+      print('Error checking BLE status: $e');
+      return BleStatus.unknown;
+    }
+  }
+
   Future<void> _startScanning() async {
     if (_isScanning) return;
 
-    // Check BLE status
-    final bleStatus = await _ble.statusStream.first;
+    final bleStatus = await _getCurrentBleStatus();
+    if (!mounted) return;
     if (bleStatus != BleStatus.ready) {
-      _showBluetoothOffDialog();
+      _showBluetoothOffDialog(bleStatus);
       return;
     }
+
+    await _scanSubscription?.cancel();
+    _scanTimer?.cancel();
 
     if (mounted) {
       setState(() {
@@ -77,11 +93,12 @@ class _SensorScanScreenState extends State<SensorScanScreen> {
         },
         onError: (error) {
           print('Scan error: $error');
+          if (!mounted) return;
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Scan error: $error'),
-                backgroundColor: Colors.red,
+                content: Text('Scan error: $error', style: TextStyle(color: AppTheme.error)),
+                backgroundColor: Theme.of(context).colorScheme.errorContainer,
               ),
             );
           }
@@ -142,12 +159,32 @@ class _SensorScanScreenState extends State<SensorScanScreen> {
     }
   }
 
-  void _showBluetoothOffDialog() {
+  void _showBluetoothOffDialog(BleStatus status) {
+    if (!mounted) return;
+
+    String message;
+    switch (status) {
+      case BleStatus.ready:
+        message = 'Bluetooth is ready.';
+        break;
+      case BleStatus.unauthorized:
+        message = 'Bluetooth permission is not granted. Please allow permissions in settings.';
+        break;
+      case BleStatus.locationServicesDisabled:
+        message = 'Location services are disabled. Please enable location services to scan for BLE devices.';
+        break;
+      case BleStatus.poweredOff:
+      case BleStatus.unknown:
+      default:
+        message = 'Bluetooth appears to be off or unavailable. Please turn on Bluetooth and try again.';
+        break;
+    }
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Bluetooth is Off'),
-        content: Text('Please turn on Bluetooth to scan for TPMS sensors.'),
+        title: Text('Bluetooth Status'),
+        content: Text(message),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -164,15 +201,18 @@ class _SensorScanScreenState extends State<SensorScanScreen> {
       // Check if sensor is already bound
       bool isAlreadyBound =
           await SensorIdStore.isSensorBound(sensorData.sensorId);
+      if (!mounted) return;
       if (isAlreadyBound) {
         String? boundWheel =
             await SensorIdStore.getWheelForSensor(sensorData.sensorId);
+        if (!mounted) return;
         _showAlreadyBoundDialog(sensorData.sensorId, boundWheel);
         return;
       }
 
       // Show detailed confirmation dialog with sensor data
       bool? confirm = await _showBindConfirmationDialog(sensorData);
+      if (!mounted) return;
 
       if (confirm == true) {
         await SensorIdStore.bindSensor(
@@ -180,19 +220,19 @@ class _SensorScanScreenState extends State<SensorScanScreen> {
           sensorId: sensorData.sensorId,
           deviceId: device.id,
         );
+        if (!mounted) return;
 
         // Save initial sensor data
         await SensorIdStore.saveLatestSensorData(widget.wheelLabel, sensorData);
+        if (!mounted) return;
 
         // Update global sensor status to show it's now bound
         updateSensorStatus(
             widget.wheelLabel,
             SensorStatus(
               connected: true,
-              statusColor: Colors.green,
-              warningIcons: [
-                Icon(Icons.bluetooth_connected, color: Colors.white, size: 12)
-              ],
+              statusColor: AppTheme.primary,
+              warningIcons: [Icons.bluetooth_connected],
               message: 'Connected with live data',
             ));
 
@@ -200,8 +240,9 @@ class _SensorScanScreenState extends State<SensorScanScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                  'Sensor ${sensorData.sensorId} bound to ${widget.wheelLabel}'),
-              backgroundColor: Colors.green,
+                  'Sensor ${sensorData.sensorId} bound to ${widget.wheelLabel}', 
+                  style: TextStyle(color: AppTheme.onBackground)),
+              backgroundColor: AppTheme.surfaceHigh,
             ),
           );
 
@@ -212,8 +253,8 @@ class _SensorScanScreenState extends State<SensorScanScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error binding sensor: $e'),
-            backgroundColor: Colors.red,
+            content: Text('Error binding sensor: $e', style: TextStyle(color: AppTheme.error)),
+            backgroundColor: Theme.of(context).colorScheme.errorContainer,
           ),
         );
       }
@@ -224,14 +265,15 @@ class _SensorScanScreenState extends State<SensorScanScreen> {
     return showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Bind Sensor'),
+        backgroundColor: AppTheme.surface,
+        title: Text('Bind Sensor', style: TextStyle(color: AppTheme.onBackground)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               'Bind this sensor to ${widget.wheelLabel}?',
-              style: TextStyle(fontWeight: FontWeight.bold),
+              style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.onBackground),
             ),
             SizedBox(height: 16),
             _buildDataRow('Sensor ID', sensorData.sensorId, Icons.sensors),
@@ -240,7 +282,7 @@ class _SensorScanScreenState extends State<SensorScanScreen> {
                 '${sensorData.pressure} kPa (${sensorData.pressurePsi.toStringAsFixed(1)} PSI)',
                 Icons.speed),
             _buildDataRow(
-                'Temperature', '${sensorData.temperature}°C', Icons.thermostat),
+                'Temperature', '${sensorData.temperature}Â°C', Icons.thermostat),
             _buildDataRow(
                 'Battery',
                 '${sensorData.battery} (${sensorData.batteryVoltage.toStringAsFixed(2)}V)',
@@ -248,18 +290,18 @@ class _SensorScanScreenState extends State<SensorScanScreen> {
             SizedBox(height: 8),
             Text(
               'Last updated: ${_formatTime(sensorData.timestamp)}',
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              style: TextStyle(fontSize: 12, color: AppTheme.outline),
             ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text('Cancel'),
+            child: Text('Cancel', style: TextStyle(color: AppTheme.primary)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text('Bind', style: TextStyle(color: Colors.blue[800])),
+            child: Text('Bind', style: TextStyle(color: AppTheme.primary)),
           ),
         ],
       ),
@@ -271,28 +313,32 @@ class _SensorScanScreenState extends State<SensorScanScreen> {
       padding: EdgeInsets.symmetric(vertical: 2),
       child: Row(
         children: [
-          Icon(icon, size: 16, color: Colors.blue[600]),
+          Icon(icon, size: 16, color: AppTheme.primary),
           SizedBox(width: 8),
-          Text('$label: ', style: TextStyle(fontWeight: FontWeight.w500)),
-          Expanded(child: Text(value, style: TextStyle(fontSize: 13))),
+          Text('$label: ', style: TextStyle(fontWeight: FontWeight.w500, color: AppTheme.onSurfaceVariant)),
+          Expanded(child: Text(value, style: TextStyle(fontSize: 13, color: AppTheme.onBackground))),
         ],
       ),
     );
   }
 
   void _showAlreadyBoundDialog(String sensorId, String? boundWheel) {
+    if (!mounted) return;
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Sensor Already Bound'),
+        backgroundColor: AppTheme.surface,
+        title: Text('Sensor Already Bound', style: TextStyle(color: AppTheme.onBackground)),
         content: Text(
           'Sensor $sensorId is already bound to ${boundWheel ?? "another wheel"}. '
           'Please unbind it first or choose a different sensor.',
+          style: TextStyle(color: AppTheme.onSurfaceVariant),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('OK'),
+            child: Text('OK', style: TextStyle(color: AppTheme.primary)),
           ),
         ],
       ),
@@ -300,47 +346,50 @@ class _SensorScanScreenState extends State<SensorScanScreen> {
   }
 
   void _showSensorDetails(SensorData sensorData, int rssi) {
+    if (!mounted) return;
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Sensor Details'),
+        backgroundColor: AppTheme.surface,
+        title: Text('Sensor Details', style: TextStyle(color: AppTheme.onBackground)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildDataRow('Sensor ID', sensorData.sensorId, Icons.sensors),
-            Divider(),
+            Divider(color: AppTheme.outlineVariant),
             _buildDataRow(
                 'Pressure (kPa)', sensorData.pressure.toString(), Icons.speed),
             _buildDataRow('Pressure (PSI)',
                 sensorData.pressurePsi.toStringAsFixed(2), Icons.speed),
             _buildDataRow('Pressure (bar)',
                 sensorData.pressureBar.toStringAsFixed(2), Icons.speed),
-            Divider(),
-            _buildDataRow('Temperature (°C)', sensorData.temperature.toString(),
+            Divider(color: AppTheme.outlineVariant),
+            _buildDataRow('Temperature (Â°C)', sensorData.temperature.toString(),
                 Icons.thermostat),
             _buildDataRow('Temperature (K)',
                 sensorData.temperatureK.toStringAsFixed(2), Icons.thermostat),
-            Divider(),
+            Divider(color: AppTheme.outlineVariant),
             _buildDataRow('Battery Raw', sensorData.battery.toString(),
                 Icons.battery_full),
             _buildDataRow(
                 'Battery Voltage',
                 '${sensorData.batteryVoltage.toStringAsFixed(3)}V',
                 Icons.battery_full),
-            Divider(),
+            Divider(color: AppTheme.outlineVariant),
             _buildDataRow('RSSI', '$rssi dBm', Icons.signal_cellular_alt),
-            Divider(),
+            Divider(color: AppTheme.outlineVariant),
             Text(
               'Last updated: ${_formatDateTime(sensorData.timestamp)}',
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              style: TextStyle(fontSize: 12, color: AppTheme.outline),
             ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Close'),
+            child: Text('Close', style: TextStyle(color: AppTheme.primary)),
           ),
         ],
       ),
@@ -367,12 +416,30 @@ class _SensorScanScreenState extends State<SensorScanScreen> {
         .toList();
 
     return Scaffold(
+      backgroundColor: AppTheme.background,
       appBar: AppBar(
-        title: Text('Scan for ${widget.wheelLabel}'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.blue[800],
-        elevation: 0,
+        title: Row(
+          children: [
+            Icon(Icons.settings_input_antenna, color: AppTheme.primary),
+            SizedBox(width: 8),
+            Text('TPMS PRO'),
+          ],
+        ),
+        backgroundColor: AppTheme.surface,
+        foregroundColor: AppTheme.primary,
+        elevation: 0.5,
         actions: [
+          Container(
+            margin: EdgeInsets.only(right: 6),
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: AppTheme.surfaceHigh,
+              shape: BoxShape.circle,
+              border: Border.all(color: AppTheme.outlineVariant),
+            ),
+            child: Icon(Icons.person, size: 18, color: AppTheme.onSurfaceVariant),
+          ),
           if (_isScanning)
             IconButton(
               onPressed: _stopScanning,
@@ -387,35 +454,115 @@ class _SensorScanScreenState extends State<SensorScanScreen> {
       ),
       body: Column(
         children: [
-          // Scanning indicator
           Container(
-            padding: EdgeInsets.all(16),
-            color: _isScanning ? Colors.blue[50] : Colors.grey[50],
-            child: Row(
+            margin: EdgeInsets.fromLTRB(16, 16, 16, 12),
+            padding: EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: AppTheme.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppTheme.outlineVariant),
+            ),
+            child: Column(
               children: [
-                if (_isScanning)
-                  SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                else
-                  Icon(Icons.bluetooth_searching, color: Colors.blue),
-                SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    _isScanning
-                        ? 'Scanning for TPMS sensors...'
-                        : 'Tap refresh to scan for sensors',
-                    style: TextStyle(
-                      color: _isScanning ? Colors.blue[800] : Colors.grey[600],
-                      fontWeight: FontWeight.w500,
-                    ),
+                Container(
+                  width: 190,
+                  height: 190,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppTheme.background,
+                    border: Border.all(color: AppTheme.primary.withValues(alpha: 0.1)),
+                  ),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      for (final inset in [18.0, 36.0, 54.0])
+                        Positioned.fill(
+                          child: Padding(
+                            padding: EdgeInsets.all(inset),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(color: AppTheme.primary.withValues(alpha: 0.12)),
+                              ),
+                            ),
+                          ),
+                        ),
+                      Container(
+                        width: 64,
+                        height: 64,
+                        decoration: BoxDecoration(
+                          color: AppTheme.surface,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: AppTheme.primary, width: 1.6),
+                        ),
+                        child: Icon(
+                          _isScanning ? Icons.bluetooth_searching : Icons.bluetooth,
+                          color: AppTheme.primary,
+                          size: 32,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: 14),
+                Text(
+                  _isScanning ? 'Scanning for Sensors...' : 'Ready to Scan',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.onBackground,
+                  ),
+                ),
+                SizedBox(height: 6),
+                Text(
+                  '${validDevices.length.toString().padLeft(2, '0')} DEVICES IN RANGE',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontFamily: 'JetBrains Mono',
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 1,
+                    color: AppTheme.primary,
                   ),
                 ),
               ],
             ),
           ),
+
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                Text(
+                  'Discovered Devices',
+                  style: TextStyle(
+                    fontFamily: 'JetBrains Mono',
+                    fontSize: 12,
+                    color: AppTheme.onSurfaceVariant,
+                    letterSpacing: 1,
+                  ),
+                ),
+                Spacer(),
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: _isScanning ? AppTheme.primary : AppTheme.outline,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                SizedBox(width: 8),
+                Text(
+                  _isScanning ? 'Active' : 'Idle',
+                  style: TextStyle(
+                    fontFamily: 'JetBrains Mono',
+                    fontSize: 12,
+                    color: _isScanning ? AppTheme.primary : AppTheme.outline,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(height: 8),
 
           // Scan results
           Expanded(
@@ -425,18 +572,18 @@ class _SensorScanScreenState extends State<SensorScanScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(Icons.bluetooth_searching,
-                            size: 64, color: Colors.grey[400]),
+                            size: 64, color: AppTheme.outlineVariant),
                         SizedBox(height: 16),
                         Text(
                           'No sensors found',
                           style:
-                              TextStyle(fontSize: 18, color: Colors.grey[600]),
+                              TextStyle(fontSize: 18, color: AppTheme.onSurfaceVariant),
                         ),
                         SizedBox(height: 8),
                         Text(
                           'Make sure your TPMS sensors are active and nearby',
                           textAlign: TextAlign.center,
-                          style: TextStyle(color: Colors.grey[500]),
+                          style: TextStyle(color: AppTheme.outline),
                         ),
                       ],
                     ),
@@ -448,122 +595,146 @@ class _SensorScanScreenState extends State<SensorScanScreen> {
                       SensorData sensorData = _deviceSensorData[device.id]!;
                       int rssi = _deviceRssi[device.id] ?? device.rssi;
 
-                      return Card(
-                        margin:
-                            EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                        child: ExpansionTile(
-                          leading: CircleAvatar(
-                            backgroundColor: Colors.blue[100],
-                            child: Icon(Icons.sensors, color: Colors.blue[800]),
-                          ),
-                          title: Text(
-                            'Sensor ID: ${sensorData.sensorId}',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                      return Container(
+                        key: ValueKey(device.id),
+                        margin: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: AppTheme.surface,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppTheme.outlineVariant),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.04),
+                              blurRadius: 8,
+                              offset: Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Theme(
+                          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                          child: ExpansionTile(
+                            leading: Container(
+                              padding: EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: AppTheme.surface,
+                                borderRadius: BorderRadius.circular(50),
+                              ),
+                              child: Icon(Icons.sensors, color: AppTheme.primary),
+                            ),
+                            title: Text(
+                              device.name.isNotEmpty ? device.name : 'TPMS Sensor',
+                              style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.onBackground),
+                            ),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                    'ID: ${sensorData.sensorId}',
+                                    style: TextStyle(color: AppTheme.onSurfaceVariant)),
+                                Text('RSSI: $rssi dBm', style: TextStyle(color: AppTheme.onSurfaceVariant)),
+                                SizedBox(height: 4),
+                                // Quick preview of sensor data
+                                Row(
+                                  children: [
+                                    _buildQuickStat(
+                                        Icons.speed,
+                                        '${sensorData.pressurePsi.toStringAsFixed(1)} PSI',
+                                        AppTheme.primary),
+                                    SizedBox(width: 12),
+                                    _buildQuickStat(
+                                        Icons.thermostat,
+                                        '${sensorData.temperature}Â°C',
+                                        AppTheme.error),
+                                    SizedBox(width: 12),
+                                    _buildQuickStat(
+                                        Icons.battery_full,
+                                        '${sensorData.batteryVoltage.toStringAsFixed(1)}V',
+                                        AppTheme.primary),
+                                  ],
+                                ),
+                              ],
+                            ),
                             children: [
-                              Text(
-                                  'Device: ${device.name.isNotEmpty ? device.name : "Unknown"}'),
-                              Text('RSSI: $rssi dBm'),
-                              SizedBox(height: 4),
-                              // Quick preview of sensor data
-                              Row(
-                                children: [
-                                  _buildQuickStat(
-                                      Icons.speed,
-                                      '${sensorData.pressurePsi.toStringAsFixed(1)} PSI',
-                                      Colors.blue),
-                                  SizedBox(width: 12),
-                                  _buildQuickStat(
-                                      Icons.thermostat,
-                                      '${sensorData.temperature}°C',
-                                      Colors.orange),
-                                  SizedBox(width: 12),
-                                  _buildQuickStat(
-                                      Icons.battery_full,
-                                      '${sensorData.batteryVoltage.toStringAsFixed(1)}V',
-                                      Colors.green),
-                                ],
+                              Padding(
+                                padding: EdgeInsets.all(16),
+                                child: Column(
+                                  children: [
+                                    // Detailed sensor data
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: _buildDetailCard(
+                                              'Pressure',
+                                              '${sensorData.pressure} kPa\n${sensorData.pressurePsi.toStringAsFixed(2)} PSI\n${sensorData.pressureBar.toStringAsFixed(2)} bar',
+                                              Icons.speed,
+                                              AppTheme.primary),
+                                        ),
+                                        SizedBox(width: 8),
+                                        Expanded(
+                                          child: _buildDetailCard(
+                                              'Temperature',
+                                              '${sensorData.temperature}Â°C\n${sensorData.temperatureK.toStringAsFixed(1)} K',
+                                              Icons.thermostat,
+                                              AppTheme.error),
+                                        ),
+                                      ],
+                                    ),
+                                    SizedBox(height: 8),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: _buildDetailCard(
+                                              'Battery',
+                                              'Raw: ${sensorData.battery}\n${sensorData.batteryVoltage.toStringAsFixed(3)}V',
+                                              Icons.battery_full,
+                                              AppTheme.primary),
+                                        ),
+                                        SizedBox(width: 8),
+                                        Expanded(
+                                          child: _buildDetailCard(
+                                              'Signal',
+                                              'RSSI: $rssi dBm\nUpdated: ${_formatTime(sensorData.timestamp)}',
+                                              Icons.signal_cellular_alt,
+                                              AppTheme.primary),
+                                        ),
+                                      ],
+                                    ),
+                                    SizedBox(height: 16),
+                                    // Action buttons
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: OutlinedButton.icon(
+                                            onPressed: () => _showSensorDetails(
+                                                sensorData, rssi),
+                                            style: OutlinedButton.styleFrom(
+                                              foregroundColor: AppTheme.primary,
+                                              side: BorderSide(color: AppTheme.outlineVariant),
+                                            ),
+                                            icon: Icon(Icons.info_outline),
+                                            label: Text('Details'),
+                                          ),
+                                        ),
+                                        SizedBox(width: 8),
+                                        Expanded(
+                                          child: ElevatedButton.icon(
+                                            onPressed: () =>
+                                                _bindSensor(device, sensorData),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: AppTheme.primary,
+                                              foregroundColor: AppTheme.onPrimary,
+                                            ),
+                                            icon: Icon(Icons.link),
+                                            label: Text('Bind'),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
                               ),
                             ],
                           ),
-                          children: [
-                            Padding(
-                              padding: EdgeInsets.all(16),
-                              child: Column(
-                                children: [
-                                  // Detailed sensor data
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: _buildDetailCard(
-                                            'Pressure',
-                                            '${sensorData.pressure} kPa\n${sensorData.pressurePsi.toStringAsFixed(2)} PSI\n${sensorData.pressureBar.toStringAsFixed(2)} bar',
-                                            Icons.speed,
-                                            Colors.blue),
-                                      ),
-                                      SizedBox(width: 8),
-                                      Expanded(
-                                        child: _buildDetailCard(
-                                            'Temperature',
-                                            '${sensorData.temperature}°C\n${sensorData.temperatureK.toStringAsFixed(1)} K',
-                                            Icons.thermostat,
-                                            Colors.orange),
-                                      ),
-                                    ],
-                                  ),
-                                  SizedBox(height: 8),
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: _buildDetailCard(
-                                            'Battery',
-                                            'Raw: ${sensorData.battery}\n${sensorData.batteryVoltage.toStringAsFixed(3)}V',
-                                            Icons.battery_full,
-                                            Colors.green),
-                                      ),
-                                      SizedBox(width: 8),
-                                      Expanded(
-                                        child: _buildDetailCard(
-                                            'Signal',
-                                            'RSSI: $rssi dBm\nUpdated: ${_formatTime(sensorData.timestamp)}',
-                                            Icons.signal_cellular_alt,
-                                            Colors.purple),
-                                      ),
-                                    ],
-                                  ),
-                                  SizedBox(height: 16),
-                                  // Action buttons
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: OutlinedButton.icon(
-                                          onPressed: () => _showSensorDetails(
-                                              sensorData, rssi),
-                                          icon: Icon(Icons.info_outline),
-                                          label: Text('Details'),
-                                        ),
-                                      ),
-                                      SizedBox(width: 8),
-                                      Expanded(
-                                        child: ElevatedButton.icon(
-                                          onPressed: () =>
-                                              _bindSensor(device, sensorData),
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: Colors.blue[800],
-                                            foregroundColor: Colors.white,
-                                          ),
-                                          icon: Icon(Icons.link),
-                                          label: Text('Bind'),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
                         ),
                       );
                     },
@@ -572,11 +743,22 @@ class _SensorScanScreenState extends State<SensorScanScreen> {
         ],
       ),
       bottomNavigationBar: Container(
-        padding: EdgeInsets.all(16),
-        child: Text(
-          'Found ${validDevices.length} TPMS sensors with live data',
-          textAlign: TextAlign.center,
-          style: TextStyle(color: Colors.grey[600]),
+        padding: EdgeInsets.fromLTRB(16, 10, 16, 20),
+        decoration: BoxDecoration(
+          color: AppTheme.surface,
+          border: Border(top: BorderSide(color: AppTheme.outlineVariant)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.bluetooth_searching, size: 16, color: AppTheme.primary),
+            SizedBox(width: 8),
+            Text(
+              'Found ${validDevices.length} TPMS sensors with live data',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppTheme.onSurfaceVariant),
+            ),
+          ],
         ),
       ),
     );
@@ -602,9 +784,9 @@ class _SensorScanScreenState extends State<SensorScanScreen> {
     return Container(
       padding: EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Column(
         children: [
@@ -624,7 +806,7 @@ class _SensorScanScreenState extends State<SensorScanScreen> {
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 11,
-              color: Colors.grey[700],
+              color: AppTheme.onSurfaceVariant,
             ),
           ),
         ],
@@ -632,3 +814,5 @@ class _SensorScanScreenState extends State<SensorScanScreen> {
     );
   }
 }
+
+

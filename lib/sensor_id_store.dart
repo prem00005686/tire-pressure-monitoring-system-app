@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:collection/collection.dart';
-import 'dart:convert';
+// removed duplicate import
 import 'sensor_decoder.dart';
 
 class SensorThresholds {
@@ -217,6 +217,34 @@ class SensorIdStore {
       if (key.startsWith(_lastDataKey)) {
         await prefs.remove(key);
       }
+    }
+  }
+
+  /// Validate and clean up sensor data
+  static Future<void> validateAndCleanupSensorData() async {
+    try {
+      final sensors = await getBoundSensors();
+      final prefs = await SharedPreferences.getInstance();
+      
+      // Remove any corrupted or invalid sensor entries
+      final validSensors = <BoundSensor>[];
+      for (final sensor in sensors) {
+        if (sensor.wheelLabel.isNotEmpty && 
+            sensor.sensorId.isNotEmpty && 
+            sensor.deviceId.isNotEmpty) {
+          validSensors.add(sensor);
+        }
+      }
+      
+      // If we removed any invalid sensors, save the cleaned list
+      if (validSensors.length != sensors.length) {
+        final sensorsJson = validSensors.map((s) => s.toJson()).toList();
+        await prefs.setString(_boundSensorsKey, jsonEncode(sensorsJson));
+      }
+    } catch (e) {
+      print('Error validating sensor data: $e');
+      // If validation fails, clear all data to prevent corruption
+      await clearAllData();
     }
   }
 }

@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>TPMS PRO - Sensor Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "error-container": "#ffdad6",
+                        "error": "#ba1a1a",
+                        "on-surface-variant": "#424754",
+                        "on-background": "#191c1e",
+                        "inverse-on-surface": "#eff1f3",
+                        "outline": "#727785",
+                        "secondary-fixed": "#d3e4fe",
+                        "surface-container": "#eceef0",
+                        "surface-container-high": "#e6e8ea",
+                        "primary-fixed": "#d8e2ff",
+                        "on-surface": "#191c1e",
+                        "on-primary-fixed-variant": "#004395",
+                        "surface-bright": "#f7f9fb",
+                        "surface-tint": "#005ac2",
+                        "secondary-container": "#d0e1fb",
+                        "on-primary-fixed": "#001a42",
+                        "primary": "#0058be",
+                        "on-secondary": "#ffffff",
+                        "background": "#f1f3f5",
+                        "on-tertiary-fixed-variant": "#3f465c",
+                        "on-error-container": "#93000a",
+                        "inverse-surface": "#2d3133",
+                        "outline-variant": "#c2c6d6",
+                        "secondary": "#505f76",
+                        "on-secondary-fixed": "#0b1c30",
+                        "primary-fixed-dim": "#adc6ff",
+                        "tertiary-fixed-dim": "#bec6e0",
+                        "surface-dim": "#d8dadc",
+                        "on-error": "#ffffff",
+                        "on-tertiary-fixed": "#131b2e",
+                        "surface-container-highest": "#e0e3e5",
+                        "surface-container-lowest": "#ffffff",
+                        "on-tertiary": "#ffffff",
+                        "on-secondary-fixed-variant": "#38485d",
+                        "on-tertiary-container": "#fefcff",
+                        "primary-container": "#2170e4",
+                        "tertiary": "#545c72",
+                        "inverse-primary": "#adc6ff",
+                        "surface-container-low": "#f2f4f6",
+                        "secondary-fixed-dim": "#b7c8e1",
+                        "tertiary-fixed": "#dae2fd",
+                        "on-secondary-container": "#54647a",
+                        "on-primary-container": "#fefcff",
+                        "on-primary": "#ffffff",
+                        "tertiary-container": "#6c748b",
+                        "surface": "#f7f9fb",
+                        "surface-variant": "#e0e3e5"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "section-margin": "24px",
+                        "unit": "4px",
+                        "card-gap": "16px",
+                        "container-padding": "16px",
+                        "stack-gap": "12px",
+                        "margin-desktop": "32px"
+                    },
+                    "fontFamily": {
+                        "headline-lg-mobile": ["Inter"],
+                        "display-reading": ["Inter"],
+                        "label-mono": ["JetBrains Mono"],
+                        "headline-lg": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "headline-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-lg-mobile": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "display-reading": ["48px", { "lineHeight": "48px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "label-mono": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "fontWeight": "600" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "body-sm": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined.filled {
+            font-variation-settings: 'FILL' 1;
+        }
+        .glow-error {
+            box-shadow: 0 0 12px rgba(186, 26, 26, 0.15);
+        }
+        body {
+            min-height: max(884px, 100dvh);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body-lg antialiased pb-24 selection:bg-primary selection:text-on-primary min-h-screen">
+<!-- TopAppBar -->
+<header class="bg-surface-container-lowest border-b border-surface-variant flex justify-between items-center w-full px-container-padding h-16 z-50 sticky top-0 shadow-sm">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary active:scale-95 transition-transform" data-icon="settings_input_antenna">settings_input_antenna</span>
+<h1 class="text-headline-lg-mobile font-headline-lg-mobile tracking-tight text-on-surface">TPMS PRO</h1>
+</div>
+<button class="w-10 h-10 rounded-full flex items-center justify-center bg-surface-container-high text-on-surface-variant hover:bg-surface-bright transition-colors active:scale-95 outline outline-1 outline-outline-variant">
+<span class="material-symbols-outlined text-on-surface" data-icon="refresh">refresh</span>
+</button>
+</header>
+<main class="px-container-padding py-section-margin max-w-7xl mx-auto flex flex-col gap-section-margin">
+<!-- Dashboard Header / Overview -->
+<section class="grid grid-cols-3 gap-card-gap">
+<div class="bg-surface-container-lowest rounded-xl p-4 flex flex-col items-center justify-center outline outline-1 outline-outline-variant/30 text-center shadow-sm">
+<span class="font-display-reading text-display-reading text-on-surface">4</span>
+<span class="font-label-mono text-[10px] uppercase tracking-wider mt-1 text-on-surface-variant">Total</span>
+</div>
+<div class="bg-surface-container-lowest rounded-xl p-4 flex flex-col items-center justify-center outline outline-1 outline-outline-variant/30 text-center shadow-sm border-b-2 border-primary/20">
+<span class="font-display-reading text-display-reading text-primary">3</span>
+<span class="font-label-mono text-[10px] uppercase tracking-wider text-primary mt-1">Connected</span>
+</div>
+<div class="bg-surface-container-lowest rounded-xl p-4 flex flex-col items-center justify-center outline outline-1 outline-error border-b-2 border-error text-center relative overflow-hidden shadow-sm">
+<span class="font-display-reading text-display-reading text-error">1</span>
+<span class="font-label-mono text-[10px] uppercase tracking-wider text-error mt-1">Warning</span>
+</div>
+</section>
+<!-- Warnings Card -->
+<section class="bg-[#e91e63] rounded-xl p-4 flex items-center justify-between outline outline-1 outline-[#c2185b] shadow-lg relative overflow-hidden">
+<div class="flex items-start gap-4 relative z-10">
+<div class="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-white filled" data-icon="warning">warning</span>
+</div>
+<div>
+<h2 class="font-headline-md text-headline-md text-white uppercase tracking-wide text-sm">Critical Warning</h2>
+<p class="font-body-lg text-body-lg text-white mt-1 font-semibold">Front Left: Low Pressure (26 PSI)</p>
+</div>
+</div>
+<button class="bg-white text-[#e91e63] px-4 py-2 rounded-lg font-label-mono text-[11px] font-bold uppercase tracking-wider hover:bg-opacity-90 transition-colors">
+                Resolve
+            </button>
+</section>
+<!-- Sensor Details List (Bento Grid) -->
+<section class="grid grid-cols-1 md:grid-cols-2 gap-card-gap">
+<!-- Card: Front Left (Warning) -->
+<div class="bg-surface-container-lowest rounded-xl outline outline-2 outline-error p-5 flex flex-col relative overflow-hidden transition-transform hover:-translate-y-1 duration-300 shadow-md">
+<div class="flex justify-between items-start mb-4 relative z-10">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-error filled text-3xl" data-icon="tire_repair">tire_repair</span>
+<div>
+<h3 class="font-headline-md text-headline-md text-on-surface">Front Left</h3>
+<span class="font-label-mono text-label-mono text-on-surface-variant">ID: 8A:C1</span>
+</div>
+</div>
+<div class="bg-error/10 px-3 py-1 rounded-full flex items-center gap-2 border border-error/20">
+<span class="w-2 h-2 rounded-full bg-error animate-pulse"></span>
+<span class="font-label-mono text-[10px] font-bold text-error uppercase">Low Pressure</span>
+</div>
+</div>
+<div class="mt-auto grid grid-cols-3 gap-2 border-t border-surface-variant/50 pt-4 relative z-10">
+<div class="flex flex-col items-center">
+<span class="font-display-reading text-3xl font-bold text-error">26</span>
+<span class="font-label-mono text-[11px] font-bold mt-1 text-on-surface-variant">PSI</span>
+</div>
+<div class="flex flex-col items-center border-l border-r border-surface-variant/50">
+<span class="font-display-reading text-3xl font-bold text-on-surface">32</span>
+<span class="font-label-mono text-[11px] font-bold mt-1 text-on-surface-variant">°C</span>
+</div>
+<div class="flex flex-col items-center">
+<span class="font-display-reading text-3xl font-bold text-on-surface">85<span class="text-lg">%</span></span>
+<span class="font-label-mono text-[11px] font-bold mt-1 text-on-surface-variant">Batt</span>
+</div>
+</div>
+</div>
+<!-- Card: Front Right (Clear) -->
+<div class="bg-surface-container-lowest rounded-xl outline outline-1 outline-outline-variant/30 p-5 flex flex-col transition-transform hover:-translate-y-1 duration-300 shadow-sm">
+<div class="flex justify-between items-start mb-4">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-3xl" data-icon="tire_repair">tire_repair</span>
+<div>
+<h3 class="font-headline-md text-headline-md text-on-surface">Front Right</h3>
+<span class="font-label-mono text-label-mono text-on-surface-variant">ID: 9B:D2</span>
+</div>
+</div>
+<div class="bg-primary/10 px-3 py-1 rounded-full flex items-center gap-2 border border-primary/20">
+<span class="w-2 h-2 rounded-full bg-primary"></span>
+<span class="font-label-mono text-[10px] font-bold text-primary uppercase">Optimal</span>
+</div>
+</div>
+<div class="mt-auto grid grid-cols-3 gap-2 border-t border-surface-variant/50 pt-4">
+<div class="flex flex-col items-center">
+<span class="font-display-reading text-3xl font-bold text-primary">34</span>
+<span class="font-label-mono text-[11px] font-bold mt-1 text-on-surface-variant">PSI</span>
+</div>
+<div class="flex flex-col items-center border-l border-r border-surface-variant/50">
+<span class="font-display-reading text-3xl font-bold text-on-surface">31</span>
+<span class="font-label-mono text-[11px] font-bold mt-1 text-on-surface-variant">°C</span>
+</div>
+<div class="flex flex-col items-center">
+<span class="font-display-reading text-3xl font-bold text-on-surface">92<span class="text-lg">%</span></span>
+<span class="font-label-mono text-[11px] font-bold mt-1 text-on-surface-variant">Batt</span>
+</div>
+</div>
+</div>
+<!-- Card: Rear Left (Clear) -->
+<div class="bg-surface-container-lowest rounded-xl outline outline-1 outline-outline-variant/30 p-5 flex flex-col transition-transform hover:-translate-y-1 duration-300 shadow-sm">
+<div class="flex justify-between items-start mb-4">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-3xl" data-icon="tire_repair">tire_repair</span>
+<div>
+<h3 class="font-headline-md text-headline-md text-on-surface">Rear Left</h3>
+<span class="font-label-mono text-label-mono text-on-surface-variant">ID: 4C:E3</span>
+</div>
+</div>
+<div class="bg-primary/10 px-3 py-1 rounded-full flex items-center gap-2 border border-primary/20">
+<span class="w-2 h-2 rounded-full bg-primary"></span>
+<span class="font-label-mono text-[10px] font-bold text-primary uppercase">Optimal</span>
+</div>
+</div>
+<div class="mt-auto grid grid-cols-3 gap-2 border-t border-surface-variant/50 pt-4">
+<div class="flex flex-col items-center">
+<span class="font-display-reading text-3xl font-bold text-primary">35</span>
+<span class="font-label-mono text-[11px] font-bold mt-1 text-on-surface-variant">PSI</span>
+</div>
+<div class="flex flex-col items-center border-l border-r border-surface-variant/50">
+<span class="font-display-reading text-3xl font-bold text-on-surface">30</span>
+<span class="font-label-mono text-[11px] font-bold mt-1 text-on-surface-variant">°C</span>
+</div>
+<div class="flex flex-col items-center">
+<span class="font-display-reading text-3xl font-bold text-on-surface">88<span class="text-lg">%</span></span>
+<span class="font-label-mono text-[11px] font-bold mt-1 text-on-surface-variant">Batt</span>
+</div>
+</div>
+</div>
+<!-- Card: Rear Right (Clear) -->
+<div class="bg-surface-container-lowest rounded-xl outline outline-1 outline-outline-variant/30 p-5 flex flex-col transition-transform hover:-translate-y-1 duration-300 shadow-sm">
+<div class="flex justify-between items-start mb-4">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-3xl" data-icon="tire_repair">tire_repair</span>
+<div>
+<h3 class="font-headline-md text-headline-md text-on-surface">Rear Right</h3>
+<span class="font-label-mono text-label-mono text-on-surface-variant">ID: 7D:F4</span>
+</div>
+</div>
+<div class="bg-primary/10 px-3 py-1 rounded-full flex items-center gap-2 border border-primary/20">
+<span class="w-2 h-2 rounded-full bg-primary"></span>
+<span class="font-label-mono text-[10px] font-bold text-primary uppercase">Optimal</span>
+</div>
+</div>
+<div class="mt-auto grid grid-cols-3 gap-2 border-t border-surface-variant/50 pt-4">
+<div class="flex flex-col items-center">
+<span class="font-display-reading text-3xl font-bold text-primary">35</span>
+<span class="font-label-mono text-[11px] font-bold mt-1 text-on-surface-variant">PSI</span>
+</div>
+<div class="flex flex-col items-center border-l border-r border-surface-variant/50">
+<span class="font-display-reading text-3xl font-bold text-on-surface">30</span>
+<span class="font-label-mono text-[11px] font-bold mt-1 text-on-surface-variant">°C</span>
+</div>
+<div class="flex flex-col items-center">
+<span class="font-display-reading text-3xl font-bold text-on-surface">90<span class="text-lg">%</span></span>
+<span class="font-label-mono text-[11px] font-bold mt-1 text-on-surface-variant">Batt</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Timestamp -->
+<div class="text-center mt-4 pb-8">
+<span class="font-label-mono text-label-sm flex items-center justify-center gap-2 text-on-surface-variant">
+<span class="material-symbols-outlined text-sm" data-icon="schedule">schedule</span>
+                Last updated: Just now
+            </span>
+</div>
+</main>
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="md:hidden bg-surface-container-lowest fixed bottom-0 left-0 w-full border-t border-surface-variant/30 shadow-[0_-4px_12px_rgba(0,0,0,0.05)] z-50 flex justify-around items-center px-4 pb-8 pt-3">
+<!-- Home (Active) -->
+<a class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-full px-4 py-1 active:scale-90 transition-all duration-200" href="#">
+<span class="material-symbols-outlined filled mb-1" data-icon="dashboard">dashboard</span>
+<span class="font-label-mono text-[10px] font-bold">HOME</span>
+</a>
+<!-- Scan -->
+<a class="flex flex-col items-center justify-center px-4 py-1 text-on-surface-variant hover:text-primary active:scale-90 transition-all duration-200" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="bluetooth_searching">bluetooth_searching</span>
+<span class="font-label-mono text-[10px] font-bold">SCAN</span>
+</a>
+<!-- Spare -->
+<a class="flex flex-col items-center justify-center px-4 py-1 text-on-surface-variant hover:text-primary active:scale-90 transition-all duration-200" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="tire_repair">tire_repair</span>
+<span class="font-label-mono text-[10px] font-bold">SPARE</span>
+</a>
+<!-- Settings -->
+<a class="flex flex-col items-center justify-center px-4 py-1 text-on-surface-variant hover:text-primary active:scale-90 transition-all duration-200" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="settings">settings</span>
+<span class="font-label-mono text-[10px] font-bold">SETTINGS</span>
+</a>
+</nav>
+</body></html>

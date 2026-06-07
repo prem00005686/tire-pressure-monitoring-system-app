@@ -1,0 +1,323 @@
+<!doctype html>
+
+<html class="dark" lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>TPMS PRO - Login</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@500&amp;display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+      rel="stylesheet"
+    />
+    <script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "surface-dim": "#0c1322",
+              "inverse-on-surface": "#293040",
+              "on-tertiary-container": "#461f00",
+              "on-tertiary": "#502400",
+              "surface-container-low": "#141b2b",
+              "on-primary": "#002e6a",
+              "on-secondary-container": "#4a1c00",
+              "secondary-container": "#ec6a06",
+              "primary-fixed-dim": "#adc6ff",
+              "secondary-fixed": "#ffdbca",
+              "on-secondary-fixed-variant": "#783200",
+              "surface-variant": "#2e3545",
+              "tertiary-fixed": "#ffdcc6",
+              "outline-variant": "#424754",
+              "surface-tint": "#adc6ff",
+              "tertiary-fixed-dim": "#ffb786",
+              outline: "#8c909f",
+              "on-primary-container": "#00285d",
+              tertiary: "#ffb786",
+              "surface-container-lowest": "#070e1d",
+              "primary-fixed": "#d8e2ff",
+              "on-secondary": "#552100",
+              "surface-container-high": "#232a3a",
+              "on-tertiary-fixed-variant": "#723600",
+              error: "#ffb4ab",
+              "secondary-fixed-dim": "#ffb690",
+              "primary-container": "#4d8eff",
+              "inverse-primary": "#005ac2",
+              "on-surface": "#dce2f7",
+              "error-container": "#93000a",
+              surface: "#0c1322",
+              "tertiary-container": "#df7412",
+              "on-background": "#dce2f7",
+              "inverse-surface": "#dce2f7",
+              "on-secondary-fixed": "#341100",
+              "on-surface-variant": "#c2c6d6",
+              primary: "#adc6ff",
+              "surface-container": "#191f2f",
+              "on-error-container": "#ffdad6",
+              "on-primary-fixed": "#001a42",
+              background: "#0c1322",
+              "surface-container-highest": "#2e3545",
+              secondary: "#ffb690",
+              "on-error": "#690005",
+              "on-tertiary-fixed": "#311400",
+              "surface-bright": "#323949",
+              "on-primary-fixed-variant": "#004395",
+            },
+            borderRadius: {
+              DEFAULT: "0.25rem",
+              lg: "0.5rem",
+              xl: "0.75rem",
+              full: "9999px",
+            },
+            spacing: {
+              "section-margin": "24px",
+              unit: "4px",
+              "card-gap": "16px",
+              "container-padding": "16px",
+              "stack-gap": "12px",
+            },
+            fontFamily: {
+              "headline-lg-mobile": ["Inter"],
+              "display-reading": ["Inter"],
+              "label-mono": ["JetBrains Mono"],
+              "headline-lg": ["Inter"],
+              "body-lg": ["Inter"],
+              "body-sm": ["Inter"],
+              "headline-md": ["Inter"],
+            },
+            fontSize: {
+              "headline-lg-mobile": [
+                "24px",
+                { lineHeight: "32px", fontWeight: "600" },
+              ],
+              "display-reading": [
+                "48px",
+                {
+                  lineHeight: "48px",
+                  letterSpacing: "-0.02em",
+                  fontWeight: "700",
+                },
+              ],
+              "label-mono": [
+                "12px",
+                {
+                  lineHeight: "16px",
+                  letterSpacing: "0.05em",
+                  fontWeight: "500",
+                },
+              ],
+              "headline-lg": [
+                "32px",
+                { lineHeight: "40px", fontWeight: "600" },
+              ],
+              "body-lg": ["16px", { lineHeight: "24px", fontWeight: "400" }],
+              "body-sm": ["14px", { lineHeight: "20px", fontWeight: "400" }],
+              "headline-md": [
+                "20px",
+                { lineHeight: "28px", fontWeight: "600" },
+              ],
+            },
+          },
+        },
+      };
+    </script>
+    <style>
+      .material-symbols-outlined {
+        font-variation-settings:
+          "FILL" 0,
+          "wght" 400,
+          "GRAD" 0,
+          "opsz" 24;
+      }
+      .material-symbols-outlined[data-weight="fill"] {
+        font-variation-settings:
+          "FILL" 1,
+          "wght" 400,
+          "GRAD" 0,
+          "opsz" 24;
+      }
+
+      /* Ambient Background Effect */
+      body::before {
+        content: "";
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: radial-gradient(
+          circle at 50% 0%,
+          rgba(77, 142, 255, 0.05) 0%,
+          transparent 60%
+        );
+        pointer-events: none;
+        z-index: -1;
+      }
+    </style>
+    <style>
+      body {
+        min-height: max(884px, 100dvh);
+      }
+    </style>
+  </head>
+  <body
+    class="bg-background text-on-background min-h-screen flex flex-col items-center justify-center p-container-padding antialiased"
+  >
+    <!-- Suppressed TopAppBar & BottomNavBar because this is a Transactional/Linear screen (Login) -->
+    <main class="w-full max-w-md w-full flex flex-col gap-8 z-10 relative">
+      <!-- Header Section -->
+      <header class="text-center flex flex-col items-center gap-4 mb-4">
+        <div
+          class="w-16 h-16 bg-surface-container-high rounded-2xl flex items-center justify-center border border-surface-variant shadow-lg mb-2 relative overflow-hidden"
+        >
+          <div class="absolute inset-0 bg-primary opacity-10"></div>
+          <span
+            class="material-symbols-outlined text-4xl text-primary"
+            data-icon="settings_input_antenna"
+            data-weight="fill"
+            >settings_input_antenna</span
+          >
+        </div>
+        <div>
+          <h1
+            class="font-headline-lg-mobile text-headline-lg-mobile md:font-headline-lg md:text-headline-lg text-primary tracking-tight mb-1"
+          >
+            TPMS PRO
+          </h1>
+          <p class="font-body-sm text-body-sm text-on-surface-variant">
+            System Authentication Required
+          </p>
+        </div>
+      </header>
+      <!-- Login Form Card -->
+      <form
+        class="bg-surface-container rounded-xl p-6 border border-surface-variant shadow-xl flex flex-col gap-6"
+        onsubmit="
+          event.preventDefault();
+          window.location.href = '#';
+        "
+      >
+        <div class="flex flex-col gap-4">
+          <!-- Email Field -->
+          <div class="flex flex-col gap-2">
+            <label
+              class="font-label-mono text-label-mono text-on-surface-variant"
+              for="email"
+              >USER IDENTIFICATION</label
+            >
+            <div class="relative group">
+              <span
+                class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline group-focus-within:text-primary transition-colors"
+                data-icon="person"
+                >person</span
+              >
+              <input
+                class="w-full bg-surface-dim border border-outline-variant rounded-lg pl-12 pr-4 py-4 text-on-surface font-body-lg focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-all placeholder:text-outline/50"
+                id="email"
+                name="email"
+                placeholder="Driver ID or Email"
+                required=""
+                type="email"
+              />
+            </div>
+          </div>
+          <!-- Password Field -->
+          <div class="flex flex-col gap-2">
+            <label
+              class="font-label-mono text-label-mono text-on-surface-variant"
+              for="password"
+              >ACCESS KEY</label
+            >
+            <div class="relative group">
+              <span
+                class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline group-focus-within:text-primary transition-colors"
+                data-icon="key"
+                >key</span
+              >
+              <input
+                class="w-full bg-surface-dim border border-outline-variant rounded-lg pl-12 pr-4 py-4 text-on-surface font-body-lg focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-all placeholder:text-outline/50"
+                id="password"
+                name="password"
+                placeholder="Enter passcode"
+                required=""
+                type="password"
+              />
+            </div>
+          </div>
+        </div>
+        <!-- Actions -->
+        <div class="flex flex-col gap-4 mt-2">
+          <button
+            class="w-full h-14 bg-primary text-on-primary font-headline-md text-headline-md-mobile rounded-lg hover:bg-primary-fixed transition-colors active:scale-[0.98] flex items-center justify-center gap-2"
+            type="submit"
+          >
+            <span>Initialize System</span>
+            <span class="material-symbols-outlined" data-icon="arrow_forward"
+              >arrow_forward</span
+            >
+          </button>
+          <div class="flex items-center justify-between mt-2">
+            <a
+              class="font-label-mono text-label-mono text-secondary hover:text-secondary-fixed transition-colors"
+              href="#"
+              >Emergency Bypass</a
+            >
+            <a
+              class="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors"
+              href="#"
+              >System Diagnostics</a
+            >
+          </div>
+        </div>
+      </form>
+      <!-- Decorative Footer -->
+      <footer class="text-center mt-8 opacity-50">
+        <p class="font-label-mono text-label-mono text-outline">
+          SECURE CONNECTION ENCRYPTED
+        </p>
+        <div class="flex justify-center gap-1 mt-2">
+          <div class="w-1 h-1 rounded-full bg-primary animate-pulse"></div>
+          <div
+            class="w-1 h-1 rounded-full bg-primary animate-pulse"
+            style="animation-delay: 150ms"
+          ></div>
+          <div
+            class="w-1 h-1 rounded-full bg-primary animate-pulse"
+            style="animation-delay: 300ms"
+          ></div>
+        </div>
+      </footer>
+    </main>
+    <script>
+      // Form interaction script (Optional enhancement)
+      const inputs = document.querySelectorAll("input");
+      inputs.forEach((input) => {
+        input.addEventListener("focus", () => {
+          input.parentElement.parentElement
+            .querySelector("label")
+            .classList.add("text-primary");
+          input.parentElement.parentElement
+            .querySelector("label")
+            .classList.remove("text-on-surface-variant");
+        });
+        input.addEventListener("blur", () => {
+          input.parentElement.parentElement
+            .querySelector("label")
+            .classList.remove("text-primary");
+          input.parentElement.parentElement
+            .querySelector("label")
+            .classList.add("text-on-surface-variant");
+        });
+      });
+    </script>
+  </body>
+</html>

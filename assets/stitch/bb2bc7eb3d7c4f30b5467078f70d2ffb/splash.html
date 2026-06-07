@@ -1,0 +1,238 @@
+<!doctype html>
+
+<html class="dark" lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>TPMS PRO - Splash</title>
+    <!-- Google Fonts: Inter & JetBrains Mono -->
+    <link href="https://fonts.googleapis.com" rel="preconnect" />
+    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=JetBrains+Mono:wght@500&amp;display=swap"
+      rel="stylesheet"
+    />
+    <!-- Material Symbols -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+      rel="stylesheet"
+    />
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "surface-dim": "#0c1322",
+              "inverse-on-surface": "#293040",
+              "on-tertiary-container": "#461f00",
+              "on-tertiary": "#502400",
+              "surface-container-low": "#141b2b",
+              "on-primary": "#002e6a",
+              "on-secondary-container": "#4a1c00",
+              "secondary-container": "#ec6a06",
+              "primary-fixed-dim": "#adc6ff",
+              "secondary-fixed": "#ffdbca",
+              "on-secondary-fixed-variant": "#783200",
+              "surface-variant": "#2e3545",
+              "tertiary-fixed": "#ffdcc6",
+              "outline-variant": "#424754",
+              "surface-tint": "#adc6ff",
+              "tertiary-fixed-dim": "#ffb786",
+              outline: "#8c909f",
+              "on-primary-container": "#00285d",
+              tertiary: "#ffb786",
+              "surface-container-lowest": "#070e1d",
+              "primary-fixed": "#d8e2ff",
+              "on-secondary": "#552100",
+              "surface-container-high": "#232a3a",
+              "on-tertiary-fixed-variant": "#723600",
+              error: "#ffb4ab",
+              "secondary-fixed-dim": "#ffb690",
+              "primary-container": "#4d8eff",
+              "inverse-primary": "#005ac2",
+              "on-surface": "#dce2f7",
+              "error-container": "#93000a",
+              surface: "#0c1322",
+              "tertiary-container": "#df7412",
+              "on-background": "#dce2f7",
+              "inverse-surface": "#dce2f7",
+              "on-secondary-fixed": "#341100",
+              "on-surface-variant": "#c2c6d6",
+              primary: "#adc6ff",
+              "surface-container": "#191f2f",
+              "on-error-container": "#ffdad6",
+              "on-primary-fixed": "#001a42",
+              background: "#0c1322",
+              "surface-container-highest": "#2e3545",
+              secondary: "#ffb690",
+              "on-error": "#690005",
+              "on-tertiary-fixed": "#311400",
+              "surface-bright": "#323949",
+              "on-primary-fixed-variant": "#004395",
+            },
+            borderRadius: {
+              DEFAULT: "0.25rem",
+              lg: "0.5rem",
+              xl: "0.75rem",
+              full: "9999px",
+            },
+            spacing: {
+              "section-margin": "24px",
+              unit: "4px",
+              "card-gap": "16px",
+              "container-padding": "16px",
+              "stack-gap": "12px",
+            },
+            fontFamily: {
+              "headline-lg-mobile": ["Inter"],
+              "display-reading": ["Inter"],
+              "label-mono": ["JetBrains Mono"],
+              "headline-lg": ["Inter"],
+              "body-lg": ["Inter"],
+              "body-sm": ["Inter"],
+              "headline-md": ["Inter"],
+            },
+            fontSize: {
+              "headline-lg-mobile": [
+                "24px",
+                { lineHeight: "32px", fontWeight: "600" },
+              ],
+              "display-reading": [
+                "48px",
+                {
+                  lineHeight: "48px",
+                  letterSpacing: "-0.02em",
+                  fontWeight: "700",
+                },
+              ],
+              "label-mono": [
+                "12px",
+                {
+                  lineHeight: "16px",
+                  letterSpacing: "0.05em",
+                  fontWeight: "500",
+                },
+              ],
+              "headline-lg": [
+                "32px",
+                { lineHeight: "40px", fontWeight: "600" },
+              ],
+              "body-lg": ["16px", { lineHeight: "24px", fontWeight: "400" }],
+              "body-sm": ["14px", { lineHeight: "20px", fontWeight: "400" }],
+              "headline-md": [
+                "20px",
+                { lineHeight: "28px", fontWeight: "600" },
+              ],
+            },
+          },
+        },
+      };
+    </script>
+    <style>
+      /* Custom indeterminate progress animation */
+      @keyframes indeterminate {
+        0% {
+          left: -35%;
+          right: 100%;
+        }
+        60% {
+          left: 100%;
+          right: -90%;
+        }
+        100% {
+          left: 100%;
+          right: -90%;
+        }
+      }
+      .animate-indeterminate {
+        animation: indeterminate 2.1s cubic-bezier(0.65, 0.815, 0.735, 0.395)
+          infinite;
+      }
+
+      /* Subtle pulsing glow for the logo container */
+      @keyframes subtle-glow {
+        0%,
+        100% {
+          box-shadow: 0 0 40px rgba(173, 198, 255, 0.05);
+        }
+        50% {
+          box-shadow: 0 0 60px rgba(173, 198, 255, 0.2);
+        }
+      }
+      .glow-effect {
+        animation: subtle-glow 3s ease-in-out infinite;
+      }
+    </style>
+    <style>
+      body {
+        min-height: max(884px, 100dvh);
+      }
+    </style>
+  </head>
+  <body
+    class="bg-background text-on-background h-screen w-screen overflow-hidden flex flex-col justify-center items-center relative select-none"
+  >
+    <!-- Central Branding Area -->
+    <main class="flex flex-col items-center justify-center z-10">
+      <!-- Glowing Antenna Icon -->
+      <div
+        class="relative flex items-center justify-center w-32 h-32 mb-8 rounded-full bg-surface-container border border-outline-variant glow-effect"
+      >
+        <span
+          class="material-symbols-outlined text-[64px] text-primary"
+          style="font-variation-settings: &quot;FILL&quot; 1"
+        >
+          settings_input_antenna
+        </span>
+        <!-- Inner ring accent -->
+        <div
+          class="absolute inset-2 rounded-full border border-primary/20"
+        ></div>
+      </div>
+      <!-- Typography -->
+      <h1
+        class="font-display-reading text-display-reading text-on-surface mb-2"
+      >
+        TPMS PRO
+      </h1>
+      <div class="flex items-center gap-2">
+        <div class="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
+        <p class="font-label-mono text-label-mono text-primary uppercase">
+          Diagnostic System
+        </p>
+      </div>
+    </main>
+    <!-- Bottom Progress Area -->
+    <footer
+      class="absolute bottom-16 w-full max-w-[280px] flex flex-col items-center z-10"
+    >
+      <div
+        class="w-full h-1 bg-surface-variant rounded-full overflow-hidden relative"
+      >
+        <div
+          class="absolute top-0 bottom-0 bg-primary rounded-full animate-indeterminate w-1/2"
+        ></div>
+      </div>
+      <p
+        class="font-label-mono text-label-mono text-on-surface-variant mt-4 opacity-80"
+      >
+        Loading initial services...
+      </p>
+    </footer>
+    <!-- Background Atmospheric Effect -->
+    <div
+      class="absolute inset-0 pointer-events-none overflow-hidden flex items-center justify-center"
+    >
+      <div
+        class="w-[80vw] h-[80vw] rounded-full bg-primary/5 blur-[120px] opacity-50"
+      ></div>
+    </div>
+  </body>
+</html>

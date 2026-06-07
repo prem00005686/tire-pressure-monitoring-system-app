@@ -1,3 +1,5 @@
+import java.io.File
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -43,6 +45,12 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
+
+    packaging {
+        jniLibs {
+            excludes += "**/libVkLayer_khronos_validation.so"
+        }
+    }
 }
 
 flutter {
@@ -52,4 +60,25 @@ flutter {
 dependencies {
     implementation("androidx.core:core-ktx:1.12.0")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+}
+
+// Workaround: proactively delete locked Vulkan validation native lib before merge
+gradle.projectsEvaluated {
+    tasks.matching { it.name.contains("merge") && it.name.contains("NativeLibs") }.configureEach {
+        doFirst {
+            val abis = listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+            val mergedLibsDir = project.layout.buildDirectory.dir("intermediates/merged_native_libs/debug/mergeDebugNativeLibs/out/lib").get().asFile
+            abis.forEach { abi ->
+                val target = File(mergedLibsDir, "$abi/libVkLayer_khronos_validation.so")
+                if (target.exists()) {
+                    logger.lifecycle("Removing locked file to avoid Windows file-lock: ${'$'}{target.absolutePath}")
+                    try {
+                        target.delete()
+                    } catch (e: Exception) {
+                        logger.warn("Failed to delete locked file: ${'$'}{e.message}")
+                    }
+                }
+            }
+        }
+    }
 }
